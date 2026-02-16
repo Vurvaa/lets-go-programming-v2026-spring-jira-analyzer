@@ -6,15 +6,16 @@ services:
     container_name: jira_postgres
 
     environment:
-      POSTGRES_USER: pguser
-      POSTGRES_PASSWORD: pgpwd
-      POSTGRES_DB: jira_db
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
 
     ports:
-      - "5432:5432" # external:internal
+      - "${DB_PORT}:5432" # external:internal
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:
