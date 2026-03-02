@@ -9,11 +9,9 @@ import (
 )
 
 type Project struct {
+	ProjectId   string `json:"id"`
 	ProjectName string `json:"name"`
-	Lead        struct {
-		Name string `json:"name"`
-	} `json:"lead"`
-	Issues []json.RawMessage
+	Issues      []json.RawMessage
 }
 
 const apiBase string = "/jira/rest/api/2/"
@@ -35,7 +33,7 @@ func GetBody(url string, expansion string) ([]byte, error) {
 }
 
 func GetProjects(url string) ([]Project, error) {
-	expansion := "project?expand=lead"
+	expansion := "project"
 	body, err := GetBody(url, expansion)
 	if err != nil {
 		return nil, err
