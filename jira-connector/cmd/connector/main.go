@@ -11,16 +11,16 @@ import (
 func main() {
 	url := "https://issues.apache.org"
 
-	projets, err := connector.GetProjects(url)
+	projects, err := connector.GetProjects(url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err = connector.GetIssues(url, projets, 1000); err != nil {
+	if err = connector.GetIssues(url, projects, 1000); err != nil {
 		log.Fatal(err)
 	}
 
-	parsedIssues, err := dataTransformer.ParseIssues(projets)
+	parsedIssues, err := dataTransformer.ParseIssues(projects)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func main() {
 	defer store.Close()
 
 	ctx := context.Background()
-	if err := store.SaveAll(ctx, parsedIssues, projets); err != nil {
+	if err := store.SaveAll(ctx, parsedIssues, projects); err != nil {
 		log.Fatal("Failed to save data:", err)
 	}
 
