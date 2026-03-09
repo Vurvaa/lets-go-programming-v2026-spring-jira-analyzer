@@ -10,22 +10,17 @@ import (
 
 func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, projects []connector.Project) error {
 	// the method starts a chain of saving data for all tables
-	log.Printf("Starting save %d issues", len(issues))
-
-	projectNames := make(map[string]string)
+	log.Printf("Saving %d projects", len(issues))
 	for _, project := range projects {
-		projectNames[project.ProjectId] = project.ProjectName
+		if err := s.upsertProject(ctx, project.ProjectId, project.ProjectName); err != nil {
+			return fmt.Errorf("error of saving project: %w", err)
+		}
 	}
 
+	log.Printf("Starting save %d issues", len(issues))
 	for i, issue := range issues {
 		if i%100 == 0 { // Log every 100 tasks to avoid spam
 			log.Printf("Processing issues: %d/%d...", i, len(issues))
-		}
-
-		projectID := issue.Fields.Project.ProjectID
-		projectName := projectNames[projectID]
-		if err := s.upsertProject(ctx, projectID, projectName); err != nil {
-			return fmt.Errorf("error of saving project: %w", err)
 		}
 
 		authorName := issue.Fields.Creator.AuthorName
