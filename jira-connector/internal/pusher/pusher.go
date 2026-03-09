@@ -5,16 +5,23 @@ import (
 	"fmt"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
+	"log"
 )
 
 func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, projects []connector.Project) error {
 	// the method starts a chain of saving data for all tables
+	log.Printf("Starting save %d issues", len(issues))
+
 	projectNames := make(map[string]string)
 	for _, project := range projects {
 		projectNames[project.ProjectId] = project.ProjectName
 	}
 
-	for _, issue := range issues {
+	for i, issue := range issues {
+		if i%100 == 0 { // Log every 100 tasks to avoid spam
+			log.Printf("Processing issues: %d/%d...", i, len(issues))
+		}
+
 		projectID := issue.Fields.Project.ProjectID
 		projectName := projectNames[projectID]
 		if err := s.upsertProject(ctx, projectID, projectName); err != nil {
@@ -41,6 +48,7 @@ func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, p
 		}
 	}
 
+	log.Println("Saving completed successfully")
 	return nil
 }
 
