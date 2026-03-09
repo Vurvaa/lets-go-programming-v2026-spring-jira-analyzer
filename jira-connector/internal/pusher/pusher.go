@@ -3,14 +3,21 @@ package pusher
 import (
 	"context"
 	"fmt"
+	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
 )
 
-func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue) error {
+func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, projects []connector.Project) error {
 	// the method starts a chain of saving data for all tables
+	projectNames := make(map[string]string)
+	for _, project := range projects {
+		projectNames[project.ProjectId] = project.ProjectName
+	}
+
 	for _, issue := range issues {
 		projectID := issue.Fields.Project.ProjectID
-		if err := s.upsertProject(ctx, projectID); err != nil {
+		projectName := projectNames[projectID]
+		if err := s.upsertProject(ctx, projectID, projectName); err != nil {
 			return fmt.Errorf("error of saving project: %w", err)
 		}
 
@@ -37,9 +44,9 @@ func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue) e
 	return nil
 }
 
-func (s *Storage) upsertProject(ctx context.Context, projectID string) error {
-	query := `INSERT INTO projects (id)	VALUES ($1) ON CONFLICT (id) DO NOTHING`
-	_, err := s.db.ExecContext(ctx, query, projectID)
+func (s *Storage) upsertProject(ctx context.Context, projectID string, projectName string) error {
+	query := `INSERT INTO projects (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`
+	_, err := s.db.ExecContext(ctx, query, projectID, projectName)
 	return err
 }
 

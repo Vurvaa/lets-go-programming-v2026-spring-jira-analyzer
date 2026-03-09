@@ -33,7 +33,7 @@ func main() {
 	defer store.Close()
 
 	ctx := context.Background()
-	if err := store.SaveAll(ctx, parsedIssues); err != nil {
+	if err := store.SaveAll(ctx, parsedIssues, projets); err != nil {
 		log.Fatal("Failed to save data:", err)
 	}
 
