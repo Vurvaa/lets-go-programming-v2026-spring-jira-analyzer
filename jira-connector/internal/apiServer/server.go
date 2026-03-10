@@ -3,9 +3,12 @@ package apiServer
 import (
 	"encoding/json"
 	"fmt"
+	"jira-connector/internal/apiServer/projectModels"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"jira-connector/internal/apiServer/serverConfig"
 	"jira-connector/internal/configReader"
@@ -18,7 +21,7 @@ type Server struct {
 }
 
 func NewServer() *Server {
-	reader := configReader.NewConfigReader("jira-connector/config.yaml")
+	reader := configReader.NewConfigReader("config.yaml")
 	cfg, err := reader.ReadServerConfig()
 	if err != nil {
 		log.Fatal(err)
@@ -42,23 +45,23 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	projectName := request.URL.Query().Get("project")
-	if projectName == "" {
+	projectKey := request.URL.Query().Get("project")
+	if projectKey == "" {
 		http.Error(writer, "project name was not passed to /updateProject", http.StatusBadRequest)
 
 		return
 	}
 
-	issues, err := connector.GetProjectIssues(projectName)
-	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectName, err), http.StatusBadRequest)
+	/*	issues, err := connector.GetProjectIssues(projectKey)
+		if err != nil {
+			http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 
-		return
-	}
+			return
+		}
 
-	transformedIssues := server.dataTransformer.TransformIssues(issues)
+		transformedIssues := server.dataTransformer.TransformIssues(issues)
 
-	databasePusher.PushIssues(transformedIssues)
+		databasePusher.PushIssues(transformedIssues)*/
 }
 
 func (server *Server) projects(writer http.ResponseWriter, request *http.Request) {
@@ -70,16 +73,56 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 
 	limit, page, search := parseProjectParameters(request)
 
-	projects, err := connector.GetProjects(limit, page, search)
+	projects, err := handleProjects(search)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading list of projects: %v", err), http.StatusBadRequest)
 
 		return
 	}
 
+	responseProjects := getProjectResponse(page, limit, projects)
+
 	writer.Header().Set("Content-Type", "application/json")
-	response, _ := json.Marshal(projects)
+	response, err := json.Marshal(responseProjects)
+	if err != nil {
+		http.Error(writer, fmt.Sprintf("error while marshalling response: %v", err), http.StatusInternalServerError)
+	}
+
 	_, _ = writer.Write(response)
+}
+
+func getProjectResponse(page, limit int, projects []projectModels.Project) projectModels.ProjectResponse {
+	projectsCount := len(projects)
+	startIndex := (page - 1) * limit
+	endIndex := startIndex + limit
+
+	return projectModels.ProjectResponse{
+		Projects: projects[startIndex:endIndex],
+		PageInfo: projectModels.PageInfo{
+			CurrentPage:   page,
+			PageCount:     int(math.Ceil(float64(projectsCount) / float64(limit))),
+			ProjectsCount: projectsCount,
+		},
+	}
+}
+
+func handleProjects(search string) ([]projectModels.Project, error) {
+	projects, err := connector.GetProjects("https://issues.apache.org")
+	if err != nil {
+		return nil, err
+	}
+
+	var responseProjects []projectModels.Project
+
+	for _, project := range projects {
+		isCorrectName := strings.Contains(strings.ToLower(project.ProjectName), strings.ToLower(search))
+		if isCorrectName {
+			responseProject := projectModels.Project{ProjectId: project.ProjectId, ProjectName: project.ProjectName}
+			responseProjects = append(responseProjects, responseProject)
+		}
+	}
+
+	return responseProjects, nil
 }
 
 func parseProjectParameters(request *http.Request) (int, int, string) {
