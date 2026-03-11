@@ -16,6 +16,19 @@ type Project struct {
 
 const apiBase string = "/jira/rest/api/2/"
 
+func GetProject(url, key string) (*Project, error) {
+	expansion := fmt.Sprintf("project/%s", key)
+	body, err := GetBody(url, expansion)
+	if err != nil {
+		return nil, err
+	}
+	var project Project
+	if typeErr := json.Unmarshal(body, &project); typeErr != nil {
+		return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
+	}
+	return &project, nil
+}
+
 func GetBody(url string, expansion string) ([]byte, error) {
 	resp, err := http.Get(url + apiBase + expansion)
 	if err != nil {

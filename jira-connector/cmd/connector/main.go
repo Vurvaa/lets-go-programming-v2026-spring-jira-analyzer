@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
 	"jira-connector/internal/pusher"
@@ -10,6 +11,24 @@ import (
 
 func main() {
 	url := "https://issues.apache.org"
+	projectPtr, err := connector.GetProject(url, "AAR")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(projectPtr)
+
+	project := []connector.Project{*projectPtr}
+	err = connector.GetIssues(url, project, 1000)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	issues, err := dataTransformer.ParseIssues(project)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println(issues)
 
 	projects, err := connector.GetProjects(url)
 	if err != nil {
