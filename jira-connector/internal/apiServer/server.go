@@ -1,23 +1,27 @@
 package apiServer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"jira-connector/internal/apiServer/projectModels"
 	"log"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"jira-connector/internal/apiServer/projectModels"
 	"jira-connector/internal/apiServer/serverConfig"
 	"jira-connector/internal/configReader"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/dataTransformer"
+	"jira-connector/internal/pusher"
 )
 
 type Server struct {
 	configReader *configReader.ConfigReader
 	config       *serverConfig.ServerConfig
+	storage      *pusher.Storage
 }
 
 func NewServer() *Server {
@@ -27,9 +31,16 @@ func NewServer() *Server {
 		log.Fatal(err)
 	}
 
+	connectionString := "postgres://pguser:pgpwd@jira_postgres:5432/jira_db?sslmode=disable"
+	store, err := pusher.NewStorage(connectionString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &Server{
 		configReader: reader,
 		config:       serverConfig.NewServerConfig(cfg.ConnectorHost, cfg.ConnectorPort),
+		storage:      store,
 	}
 }
 
@@ -52,16 +63,31 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	/*	issues, err := connector.GetProjectIssues(projectKey)
-		if err != nil {
-			http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+	project, err := connector.GetProject("https://issues.apache.org", projectKey)
+	if err != nil {
+		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 
-			return
-		}
+		return
+	}
 
-		transformedIssues := server.dataTransformer.TransformIssues(issues)
+	var projects []connector.Project
 
-		databasePusher.PushIssues(transformedIssues)*/
+	projects = append(projects, connector.Project{
+		ProjectId:   project.ProjectId,
+		ProjectName: project.ProjectName,
+		Issues:      project.Issues,
+	})
+
+	parsedIssues, err := dataTransformer.ParseIssues(projects)
+	if err != nil {
+		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+	}
+
+	ctx := context.Background()
+	err = server.storage.SaveAll(ctx, parsedIssues, projects)
+	if err != nil {
+		http.Error(writer, fmt.Sprintf("error while saving issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+	}
 }
 
 func (server *Server) projects(writer http.ResponseWriter, request *http.Request) {
