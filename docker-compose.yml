@@ -31,5 +31,16 @@ services:
     ports:
       - "8080:8080"
 
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: backend_service
+    depends_on:
+      - db
+      - jira-connector
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres_data:

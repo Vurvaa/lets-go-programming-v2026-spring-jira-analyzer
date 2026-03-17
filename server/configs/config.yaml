@@ -1,0 +1,10 @@
+db_host: localhost
+db_port: 49171
+db_name: testdb
+db_user: postgres
+db_passwd: admin
+
+jiraUrl: https://issues.apache.org
+
+connector_host: 127.0.0.1
+connector_port: 8003
