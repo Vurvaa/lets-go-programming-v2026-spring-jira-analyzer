@@ -121,6 +121,9 @@ func getProjectResponse(page, limit int, projects []projectModels.Project) proje
 	projectsCount := len(projects)
 	startIndex := (page - 1) * limit
 	endIndex := startIndex + limit
+	if endIndex >= len(projects) {
+		endIndex = len(projects)
+	}
 
 	return projectModels.ProjectResponse{
 		Projects: projects[startIndex:endIndex],
