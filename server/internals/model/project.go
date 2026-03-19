@@ -2,6 +2,6 @@ package model
 
 type Project struct {
 	ProjectID   int
-	Title       string
+	Name        string
 	IssuesCount int
 }
