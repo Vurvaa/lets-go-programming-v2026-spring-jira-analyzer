@@ -3,7 +3,6 @@ FROM golang:1.22.7-alpine AS builder
 WORKDIR /app
 
 COPY go.mod ./
-#RUN go mod download
 
 COPY . .
 
@@ -13,5 +12,7 @@ FROM alpine:latest
 WORKDIR /root/
 
 COPY --from=builder /app/jira-connector .
+
+COPY --from=builder /app/config.yaml .
 
 CMD ["./jira-connector"]
