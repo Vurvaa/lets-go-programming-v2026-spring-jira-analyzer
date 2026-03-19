@@ -16,32 +16,24 @@ func NewProjectRepository(db *sql.DB) *ProjectRepository {
 
 func (r *ProjectRepository) GetAllProjects(offset int, limit int) ([]model.Project, error) {
 	var projects []model.Project
+
 	rows, err := r.db.Query(
-		`SELECT 
-    	projects.id, 
-    	projects.title, 
-    	COUNT(issue.id) AS issues_count
-		FROM 
-    	projects
-		LEFT JOIN 
-    	issue ON projects.id = issue.projectId
-		GROUP BY 
-    	projects.id, 
-    	projects.title
-		ORDER BY 
-    	projects.id
-		LIMIT 
-    	$1
-		OFFSET 
-    	$2`,
+		`SELECT
+			projects.id,
+			projects.name,
+			COUNT(issues.id) AS issues_count
+		FROM projects
+		LEFT JOIN issues ON projects.id = issues.project_id
+		GROUP BY projects.id, projects.name
+		ORDER BY projects.id
+		LIMIT $1
+		OFFSET $2`,
 		limit, offset,
 	)
-
 	if err != nil {
-		log.Printf("Error with querying all projects.")
+		log.Printf("Error with querying all projects: %v", err)
 		return projects, err
 	}
-
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
@@ -51,14 +43,11 @@ func (r *ProjectRepository) GetAllProjects(offset int, limit int) ([]model.Proje
 
 	for rows.Next() {
 		var project model.Project
-		err := rows.Scan(
-			&project.ProjectID, &project.Title, &project.IssuesCount,
-		)
+		err := rows.Scan(&project.ProjectID, &project.Name, &project.IssuesCount)
 		if err != nil {
 			log.Printf("Error on handling query to the database: %s", err.Error())
 			return projects, err
 		}
-
 		projects = append(projects, project)
 	}
 

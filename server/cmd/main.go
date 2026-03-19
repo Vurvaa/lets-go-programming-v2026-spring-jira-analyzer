@@ -2,12 +2,15 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"server/internals/repository/postgres"
 	"server/internals/service"
 )
 
 func main() {
+	time.Sleep(45 * time.Second)
+
 	db := postgres.NewDB()
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -22,8 +25,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get projects: %v", err)
 	}
-
-	println("projects: ", projects)
 
 	log.Printf("projects: %+v", projects)
 }

@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o backend ./cmd/backend/main.go
+RUN go build -o backend ./cmd/main.go
 
 FROM alpine:latest
 

@@ -1,4 +1,4 @@
 jiraUrl: https://issues.apache.org
 
-connector_host: 127.0.0.1
+connector_host: jira-connector
 connector_port: 8003
