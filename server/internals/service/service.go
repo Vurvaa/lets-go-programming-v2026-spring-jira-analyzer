@@ -27,6 +27,35 @@ func (serv *ProjectService) GetAllProjectsFromDB() ([]model.Project, error) {
 	return serv.projectRepository.GetAllProjects()
 }
 
+func (s *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
+	stats, err := s.projectRepository.GetProjectStatsByID(projectID)
+	if err != nil {
+		return stats, err
+	}
+
+	reopenedIssuesCount, err := s.projectRepository.GetReopenedIssuesCount(projectID)
+	if err != nil {
+		return stats, err
+	}
+	stats.ReopenedIssuesCount = reopenedIssuesCount
+
+	averageIssuesCount, err := s.projectRepository.GetAverageIssuesCount(projectID)
+	if err != nil {
+		return stats, err
+	}
+	stats.AverageIssuesCount = averageIssuesCount
+
+	averageTime, err := s.projectRepository.GetAverageTime(projectID)
+	if err != nil {
+		return stats, err
+	}
+	stats.AverageTime = averageTime
+
+	stats.Key = stats.ProjectID
+
+	return stats, nil
+}
+
 func (serv *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, error) {
 	body, err := serv.connectorRepository.GetAllProjects(rawQuery)
 	if err != nil {
