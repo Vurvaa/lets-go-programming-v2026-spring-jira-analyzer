@@ -1,4 +1,4 @@
-package projectModels
+package model
 
 type PageInfo struct {
 	CurrentPage   int `json:"currentPage"`
@@ -6,13 +6,13 @@ type PageInfo struct {
 	ProjectsCount int `json:"projectsCount"`
 }
 
-type Project struct {
-	ProjectId   string `json:"id"`
+type ConnectorProject struct {
+	ProjectID   string `json:"id"`
 	ProjectName string `json:"name"`
 	Existence   bool   `json:"existence"`
 }
 
 type ProjectResponse struct {
-	Projects []Project `json:"Projects"`
-	PageInfo PageInfo  `json:"PageInfo"`
+	Projects []ConnectorProject `json:"Projects"`
+	PageInfo PageInfo           `json:"PageInfo"`
 }

@@ -9,8 +9,11 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func NewDB() *sql.DB {
-	cfg := config.LoadDBConfig("configs/config.yaml")
+func NewDB(configName string) *sql.DB {
+	cfg := config.LoadDBConfig(configName)
+	if cfg == nil {
+		log.Fatalf("Unable to load db config %s", configName)
+	}
 
 	connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=disable",
 		cfg.UserDB,

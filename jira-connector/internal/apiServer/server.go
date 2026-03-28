@@ -45,8 +45,8 @@ func NewServer() *Server {
 }
 
 func (server *Server) routes() {
-	http.HandleFunc("/api/v1/connector/projects", server.projects)
-	http.HandleFunc("/api/v1/connector/updateProject", server.updateProject)
+	http.HandleFunc("/api/v1/projects", server.projects)
+	http.HandleFunc("/api/v1/updateProject", server.updateProject)
 }
 
 func (server *Server) updateProject(writer http.ResponseWriter, request *http.Request) {
@@ -146,7 +146,11 @@ func handleProjects(search string) ([]projectModels.Project, error) {
 	for _, project := range projects {
 		isCorrectName := strings.Contains(strings.ToLower(project.ProjectName), strings.ToLower(search))
 		if isCorrectName {
-			responseProject := projectModels.Project{ProjectId: project.ProjectId, ProjectName: project.ProjectName}
+			responseProject := projectModels.Project{
+				ProjectId:   project.ProjectId,
+				ProjectName: project.ProjectName,
+				Existence:   false}
+
 			responseProjects = append(responseProjects, responseProject)
 		}
 	}

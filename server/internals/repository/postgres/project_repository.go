@@ -14,21 +14,15 @@ func NewProjectRepository(db *sql.DB) *ProjectRepository {
 	return &ProjectRepository{db: db}
 }
 
-func (r *ProjectRepository) GetAllProjects(offset int, limit int) ([]model.Project, error) {
+func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
 	var projects []model.Project
 
 	rows, err := r.db.Query(
 		`SELECT
 			projects.id,
-			projects.name,
-			COUNT(issues.id) AS issues_count
+			projects.name
 		FROM projects
-		LEFT JOIN issues ON projects.id = issues.project_id
-		GROUP BY projects.id, projects.name
-		ORDER BY projects.id
-		LIMIT $1
-		OFFSET $2`,
-		limit, offset,
+		ORDER BY projects.id`,
 	)
 	if err != nil {
 		log.Printf("Error with querying all projects: %v", err)
@@ -43,7 +37,7 @@ func (r *ProjectRepository) GetAllProjects(offset int, limit int) ([]model.Proje
 
 	for rows.Next() {
 		var project model.Project
-		err := rows.Scan(&project.ProjectID, &project.Name, &project.IssuesCount)
+		err := rows.Scan(&project.ProjectID, &project.Name)
 		if err != nil {
 			log.Printf("Error on handling query to the database: %s", err.Error())
 			return projects, err
@@ -51,5 +45,29 @@ func (r *ProjectRepository) GetAllProjects(offset int, limit int) ([]model.Proje
 		projects = append(projects, project)
 	}
 
+	if err := rows.Err(); err != nil {
+		log.Printf("Rows iteration error: %v", err)
+		return projects, err
+	}
+
 	return projects, nil
+}
+
+func (r *ProjectRepository) ProjectExistsByID(projectID string) (bool, error) {
+	var exists bool
+
+	err := r.db.QueryRow(
+		`SELECT EXISTS(
+			SELECT 1
+			FROM projects
+			WHERE id = $1
+		)`,
+		projectID,
+	).Scan(&exists)
+	if err != nil {
+		log.Printf("Error while checking project existence by id %s: %v", projectID, err)
+		return false, err
+	}
+
+	return exists, nil
 }

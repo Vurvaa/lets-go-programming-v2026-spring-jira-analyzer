@@ -24,3 +24,20 @@ func LoadDBConfig(filename string) *DBConfig {
 
 	return config
 }
+
+func LoadConnectorConfig(filename string) *ConnectorConfig {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		log.Printf("Error reading config file %s", filename)
+		return nil
+	}
+
+	config := &ConnectorConfig{}
+	err = yaml.Unmarshal(data, config)
+	if err != nil {
+		log.Printf("Error reading config file %s", filename)
+		return nil
+	}
+
+	return config
+}
