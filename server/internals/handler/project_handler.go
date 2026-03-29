@@ -29,7 +29,7 @@ func (h *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) 
 		offset = 0
 	}
 
-	projects, err := h.service.GetAllProjects(offset, limit)
+	projects, err := h.service.GetAllProjects()
 	if err != nil {
 		log.Printf("DEBUG ERROR: %v", err)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")

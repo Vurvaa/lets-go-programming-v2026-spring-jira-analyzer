@@ -3,17 +3,20 @@ package main
 import (
 	"log"
 	"net/http"
-	"server/internals/handler"
+	"server/internals/repository/postgres"
 	"time"
 
-	"server/internals/repository/postgres"
+	"server/internals/handler"
+	"server/internals/repository/connector"
 	"server/internals/service"
 )
 
 func main() {
+	const configName = "configs/config.yaml"
+
 	time.Sleep(45 * time.Second)
 
-	db := postgres.NewDB()
+	db := postgres.NewDB(configName)
 	defer func() {
 		if err := db.Close(); err != nil {
 			log.Printf("failed to close db: %v", err)
@@ -21,10 +24,11 @@ func main() {
 	}()
 
 	projectRepo := postgres.NewProjectRepository(db)
-	projectService := service.NewProjectService(projectRepo)
+	connectorRepo := connector.NewConnectorRepository(configName)
+	projectService := service.NewProjectService(connectorRepo, projectRepo)
 	projectHandler := handler.NewProjectHandler(projectService)
 
-	projects, err := projectService.GetAllProjects(0, 10)
+	projects, err := projectService.GetAllProjectsFromDB()
 	if err != nil {
 		log.Fatalf("failed to get projects: %v", err)
 	}
