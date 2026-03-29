@@ -16,3 +16,11 @@ func NewProjectService(repo *postgres.ProjectRepository) *ProjectService {
 func (s *ProjectService) GetAllProjects(offset int, limit int) ([]model.Project, error) {
 	return s.repo.GetAllProjects(offset, limit)
 }
+
+func (s *ProjectService) GetProject(id string) (*model.Project, error) {
+	return s.repo.GetByID(id)
+}
+
+func (s *ProjectService) DeleteProject(id string) error {
+	return s.repo.Delete(id)
+}
