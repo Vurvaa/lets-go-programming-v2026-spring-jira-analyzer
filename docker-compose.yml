@@ -4,6 +4,11 @@ services:
   db:
     image: postgres:13.8
     container_name: jira_postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -23,7 +28,8 @@ services:
       dockerfile: Dockerfile
     container_name: jira_connector_service
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     env_file:
       - .env
     environment:

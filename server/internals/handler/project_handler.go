@@ -19,7 +19,7 @@ func NewProjectHandler(s *service.ProjectService) *ProjectHandler {
 }
 
 // GET /api/v1/projects
-func (h *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetAllProjectsFromDB(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	if limit <= 0 {
@@ -29,7 +29,7 @@ func (h *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) 
 		offset = 0
 	}
 
-	projects, err := h.service.GetAllProjects()
+	projects, err := h.service.GetAllProjectsFromDB()
 	if err != nil {
 		log.Printf("DEBUG ERROR: %v", err)
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -44,9 +44,9 @@ func (h *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) 
 }
 
 // GET /api/v1/projects/{id}
-func (h *ProjectHandler) GetProjectByID(w http.ResponseWriter, r *http.Request) {
+func (h *ProjectHandler) GetProjectStatsByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	project, err := h.service.GetProject(id)
+	project, err := h.service.GetProjectStatsByID(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "Project not found", http.StatusNotFound)
@@ -68,4 +68,36 @@ func (h *ProjectHandler) DeleteProjectByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /api/v1/connector/projects
+func (h *ProjectHandler) GetAllProjectsFromRepository(w http.ResponseWriter, r *http.Request) {
+	rawQuery := r.URL.RawQuery
+
+	body, err := h.service.GetAllProjectsFromRepository(rawQuery)
+	if err != nil {
+		log.Printf("Error fetching projects from repository: %v", err)
+		http.Error(w, "Failed to fetch projects from external source", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
+}
+
+// POST /api/v1/connector/updateProject
+func (h *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
+	rawQuery := r.URL.RawQuery
+
+	body, err := h.service.UpdateProject(rawQuery)
+	if err != nil {
+		log.Printf("Error updating project in repository: %v", err)
+		http.Error(w, "Failed to update external project", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(body)
 }
