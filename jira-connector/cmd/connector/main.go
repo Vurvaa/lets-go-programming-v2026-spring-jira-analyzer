@@ -12,8 +12,7 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, project := range projects {
-		err = connector.GetIssues(url, &project, 200, 30)
-		if err != nil {
+		if err = connector.GetIssues(url, &project); err != nil {
 			log.Fatal(err)
 		}
 	}
