@@ -2,3 +2,7 @@ jiraUrl: https://issues.apache.org
 
 connector_host: 0.0.0.0
 connector_port: 8080
+minTimeSleep: 4000
+maxTimeSleep: 120000
+issueInOneRequest: 200
+threadCount: 30

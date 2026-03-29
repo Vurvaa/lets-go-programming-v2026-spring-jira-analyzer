@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand/v2"
 	"net/http"
 	URL "net/url"
+	"os"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
 )
 
 type Project struct {
@@ -25,15 +28,33 @@ const (
 	factor  int    = 2
 )
 
+type ConnectorParametrs struct {
+	MinTimeSleep      int64 `yaml:"minTimeSleep"`
+	MaxTimeSleep      int64 `yaml:"maxTimeSleep"`
+	Goroutines        int   `yaml:"threadCount"`
+	IssueInOneRequest int   `yaml:"issueInOneRequest"`
+}
+
 var (
+	cp     *ConnectorParametrs
 	client = http.Client{
 		Timeout: time.Minute,
 	}
-	minTimeSleep      int64
-	maxTimeSleep      int64
-	goroutines        int
-	issueInOneRequest int
+	once sync.Once
 )
+
+func InitParametrs(path string) {
+	once.Do(func() {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cp = &ConnectorParametrs{}
+		if err = yaml.Unmarshal(data, cp); err != nil {
+			log.Fatal(err)
+		}
+	})
+}
 
 func sleep(ctx context.Context, duration time.Duration) error {
 	select {
@@ -45,7 +66,7 @@ func sleep(ctx context.Context, duration time.Duration) error {
 }
 
 func getBody(ctx context.Context, url string, expansion string) ([]byte, error) {
-	delay := minTimeSleep
+	delay := cp.MinTimeSleep
 	for {
 		req, err := http.NewRequestWithContext(ctx, "GET", url+apiBase+expansion, nil)
 		if err != nil {
@@ -61,10 +82,10 @@ func getBody(ctx context.Context, url string, expansion string) ([]byte, error) 
 			return nil, err
 		}
 		if resp.StatusCode == 429 {
-			if delay > maxTimeSleep {
+			if delay > cp.MaxTimeSleep {
 				return nil, fmt.Errorf("Response failed with rate limit and \nbody: %s\n", body)
 			}
-			jiter := min(maxTimeSleep-delay, rand.Int64N(delay))
+			jiter := min(cp.MaxTimeSleep-delay, rand.Int64N(delay))
 			fmt.Println("sleep for a ", delay+jiter)
 			if err := sleep(ctx, time.Duration(delay+jiter)*time.Millisecond); err != nil {
 				return nil, err
@@ -111,7 +132,7 @@ func GetIssues(url string, project *Project) error {
 	body, err := getBody(ctx, url, fmt.Sprintf(
 		"search?jql=project=%s&expand=changelog&startAt=0&maxResults=%d",
 		escapedProjectName,
-		issueInOneRequest,
+		cp.IssueInOneRequest,
 	))
 	if err != nil {
 		return err
@@ -128,19 +149,19 @@ func GetIssues(url string, project *Project) error {
 	}
 	project.Issues = make([]json.RawMessage, 0, resp.Total)
 	project.Issues = append(project.Issues, resp.Issues...)
-	pages := (resp.Total + issueInOneRequest - 1) / issueInOneRequest
-	goroutines = min(pages-1, goroutines)
+	pages := (resp.Total + cp.IssueInOneRequest - 1) / cp.IssueInOneRequest
+	cp.Goroutines = min(pages-1, cp.Goroutines)
 	jobs := make(chan int, pages-1)
 	var mu sync.Mutex
 	start := time.Now()
-	for i := 0; i < goroutines; i++ {
+	for i := 0; i < cp.Goroutines; i++ {
 		g.Go(func() error {
 			for startAt := range jobs {
 				body, err := getBody(ctx, url, fmt.Sprintf(
 					"search?jql=project=%s&expand=changelog&startAt=%d&maxResults=%d",
 					escapedProjectName,
 					startAt,
-					issueInOneRequest,
+					cp.IssueInOneRequest,
 				))
 				if err != nil {
 					fmt.Println("Body returned an error")
@@ -160,7 +181,7 @@ func GetIssues(url string, project *Project) error {
 		})
 	}
 	for i := 1; i < pages; i++ {
-		jobs <- i * issueInOneRequest
+		jobs <- i * cp.IssueInOneRequest
 	}
 	close(jobs)
 	if err := g.Wait(); err != nil {
