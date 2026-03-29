@@ -2,15 +2,17 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"server/internals/repository/postgres"
 	"time"
 
-	repository "server/internals/repository/connector"
-	"server/internals/repository/postgres"
+	"server/internals/handler"
+	"server/internals/repository/connector"
 	"server/internals/service"
 )
 
 func main() {
-	const configName = "config.yaml"
+	const configName = "configs/config.yaml"
 
 	time.Sleep(45 * time.Second)
 
@@ -22,13 +24,32 @@ func main() {
 	}()
 
 	projectRepo := postgres.NewProjectRepository(db)
-	connector := repository.NewConnectorRepository(configName)
-	projectService := service.NewProjectService(connector, projectRepo)
+	connectorRepo := connector.NewConnectorRepository(configName)
+	projectService := service.NewProjectService(connectorRepo, projectRepo)
+	projectHandler := handler.NewProjectHandler(projectService)
 
 	projects, err := projectService.GetAllProjectsFromDB()
 	if err != nil {
 		log.Fatalf("failed to get projects: %v", err)
 	}
-
 	log.Printf("projects: %+v", projects)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /api/v1/projects", projectHandler.GetAllProjectsFromDB)
+	mux.HandleFunc("GET /api/v1/projects/{id}", projectHandler.GetProjectStatsByID)
+	mux.HandleFunc("DELETE /api/v1/projects/{id}", projectHandler.DeleteProjectByID)
+	mux.HandleFunc("GET /api/v1/external/projects", projectHandler.GetAllProjectsFromRepository)
+	mux.HandleFunc("POST /api/v1/connector/updateProject", projectHandler.UpdateProject)
+
+	log.Println("Starting API server on :8000")
+	server := &http.Server{
+		Addr:         ":8000",
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("failed to start API server: %v", err)
+	}
 }

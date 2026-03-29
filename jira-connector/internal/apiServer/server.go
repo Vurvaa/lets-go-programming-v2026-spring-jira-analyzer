@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"jira-connector/internal/apiServer/projectModels"
 	"jira-connector/internal/apiServer/serverConfig"
@@ -32,7 +33,19 @@ func NewServer() *Server {
 	}
 
 	connectionString := "postgres://pguser:pgpwd@jira_postgres:5432/jira_db?sslmode=disable"
-	store, err := pusher.NewStorage(connectionString)
+
+	var store *pusher.Storage
+	// Trying to connect to the database within 30 seconds
+	for i := 0; i < 15; i++ {
+		store, err = pusher.NewStorage(connectionString)
+		if err == nil {
+			log.Println("Successfully connected to database")
+			break
+		}
+		log.Printf("Database not ready (attempt %d/15), waiting...", i+1)
+		time.Sleep(2 * time.Second)
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,8 +58,8 @@ func NewServer() *Server {
 }
 
 func (server *Server) routes() {
-	http.HandleFunc("/api/v1/projects", server.projects)
-	http.HandleFunc("/api/v1/updateProject", server.updateProject)
+	http.HandleFunc("GET /api/v1/projects", server.projects)
+	http.HandleFunc("POST /api/v1/updateProject", server.updateProject)
 }
 
 func (server *Server) updateProject(writer http.ResponseWriter, request *http.Request) {

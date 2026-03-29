@@ -15,7 +15,7 @@ func NewProjectRepository(db *sql.DB) *ProjectRepository {
 }
 
 func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
-	var projects []model.Project
+	projects := make([]model.Project, 0)
 
 	rows, err := r.db.Query(
 		`SELECT
@@ -217,4 +217,20 @@ func (r *ProjectRepository) GetAverageTime(projectID string) (float64, error) {
 	}
 
 	return avg, nil
+}
+
+func (r *ProjectRepository) GetByID(id string) (*model.Project, error) {
+	query := `SELECT id, name FROM projects WHERE id = $1`
+	var project model.Project
+	err := r.db.QueryRow(query, id).Scan(&project.ProjectID, &project.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+func (r *ProjectRepository) Delete(id string) error {
+	query := `DELETE FROM projects WHERE id = $1`
+	_, err := r.db.Exec(query, id)
+	return err
 }

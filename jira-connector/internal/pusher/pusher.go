@@ -48,7 +48,7 @@ func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, p
 }
 
 func (s *Storage) upsertProject(ctx context.Context, projectID string, projectName string) error {
-	query := `INSERT INTO projects (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`
+	query := `INSERT INTO projects (id, name) VALUES ($1, $2) ON CONFLICT (id)DO UPDATE SET name = EXCLUDED.name`
 	_, err := s.db.ExecContext(ctx, query, projectID, projectName)
 	return err
 }

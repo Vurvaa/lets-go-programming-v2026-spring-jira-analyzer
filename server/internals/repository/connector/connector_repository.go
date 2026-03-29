@@ -30,7 +30,7 @@ func NewConnectorRepository(configName string) *Repository {
 }
 
 func (cntr *Repository) GetAllProjects(rawQuery string) ([]byte, error) {
-	url := fmt.Sprintf("%s/projects", cntr.connectorURL)
+	url := fmt.Sprintf("%s/api/v1/projects", cntr.connectorURL)
 	if rawQuery != "" {
 		url += "?" + rawQuery
 	}
@@ -62,7 +62,7 @@ func (cntr *Repository) GetAllProjects(rawQuery string) ([]byte, error) {
 }
 
 func (cntr *Repository) UpdateProject(rawQuery string) ([]byte, error) {
-	url := fmt.Sprintf("%s/updateProject", cntr.connectorURL)
+	url := fmt.Sprintf("%s/api/v1/updateProject", cntr.connectorURL)
 	if rawQuery != "" {
 		url += "?" + rawQuery
 	}

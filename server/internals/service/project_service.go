@@ -23,8 +23,42 @@ func NewProjectService(
 	}
 }
 
-func (serv *ProjectService) GetAllProjectsFromDB() ([]model.Project, error) {
-	return serv.projectRepository.GetAllProjects()
+func (s *ProjectService) GetAllProjectsFromDB() ([]model.Project, error) {
+	return s.projectRepository.GetAllProjects()
+}
+
+func (s *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, error) {
+	body, err := s.connectorRepository.GetAllProjects(rawQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	var projectResponse model.ProjectResponse
+	err = json.Unmarshal(body, &projectResponse)
+	if err != nil {
+		log.Printf("Error while unmarshalling connector response: %v", err)
+		return nil, err
+	}
+
+	for i := range projectResponse.Projects {
+		exists, err := s.projectRepository.ProjectExistsByID(projectResponse.Projects[i].ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		projectResponse.Projects[i].Existence = exists
+	}
+
+	updatedBody, err := json.Marshal(projectResponse)
+	if err != nil {
+		log.Printf("Error while marshalling updated project response: %v", err)
+		return nil, err
+	}
+
+	return updatedBody, nil
+}
+
+func (s *ProjectService) DeleteProject(id string) error {
+	return s.projectRepository.Delete(id)
 }
 
 func (s *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
@@ -56,36 +90,6 @@ func (s *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectSta
 	return stats, nil
 }
 
-func (serv *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, error) {
-	body, err := serv.connectorRepository.GetAllProjects(rawQuery)
-	if err != nil {
-		return nil, err
-	}
-
-	var projectResponse model.ProjectResponse
-	err = json.Unmarshal(body, &projectResponse)
-	if err != nil {
-		log.Printf("Error while unmarshalling connector response: %v", err)
-		return nil, err
-	}
-
-	for i := range projectResponse.Projects {
-		exists, err := serv.projectRepository.ProjectExistsByID(projectResponse.Projects[i].ProjectID)
-		if err != nil {
-			return nil, err
-		}
-		projectResponse.Projects[i].Existence = exists
-	}
-
-	updatedBody, err := json.Marshal(projectResponse)
-	if err != nil {
-		log.Printf("Error while marshalling updated project response: %v", err)
-		return nil, err
-	}
-
-	return updatedBody, nil
-}
-
-func (serv *ProjectService) UpdateProject(rawQuery string) ([]byte, error) {
-	return serv.connectorRepository.UpdateProject(rawQuery)
+func (s *ProjectService) UpdateProject(rawQuery string) ([]byte, error) {
+	return s.connectorRepository.UpdateProject(rawQuery)
 }
