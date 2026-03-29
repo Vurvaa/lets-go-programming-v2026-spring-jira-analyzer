@@ -1,13 +1,17 @@
 package connector
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	URL "net/url"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Project struct {
@@ -16,12 +20,68 @@ type Project struct {
 	Issues      []json.RawMessage
 }
 
-const apiBase string = "/jira/rest/api/2/"
-const E = 3
+const (
+	apiBase string = "/jira/rest/api/2/"
+	factor  int    = 2
+)
+
+var (
+	client = http.Client{
+		Timeout: time.Minute,
+	}
+	minTimeSleep      int64
+	maxTimeSleep      int64
+	goroutines        int
+	issueInOneRequest int
+)
+
+func sleep(ctx context.Context, duration time.Duration) error {
+	select {
+	case <-time.After(duration):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func getBody(ctx context.Context, url string, expansion string) ([]byte, error) {
+	delay := minTimeSleep
+	for {
+		req, err := http.NewRequestWithContext(ctx, "GET", url+apiBase+expansion, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == 429 {
+			if delay > maxTimeSleep {
+				return nil, fmt.Errorf("Response failed with rate limit and \nbody: %s\n", body)
+			}
+			jiter := min(maxTimeSleep-delay, rand.Int64N(delay))
+			fmt.Println("sleep for a ", delay+jiter)
+			if err := sleep(ctx, time.Duration(delay+jiter)*time.Millisecond); err != nil {
+				return nil, err
+			}
+			delay *= int64(factor)
+			continue
+		}
+		if resp.StatusCode > 299 {
+			return nil, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
+		}
+		return body, nil
+	}
+}
 
 func GetProject(url, key string) (*Project, error) {
 	expansion := fmt.Sprintf("project/%s", key)
-	body, err := GetBody(url, expansion)
+	body, err := getBody(context.Background(), url, expansion)
 	if err != nil {
 		return nil, err
 	}
@@ -32,37 +92,9 @@ func GetProject(url, key string) (*Project, error) {
 	return &project, nil
 }
 
-func GetBody(url string, expansion string) ([]byte, error) {
-	minTimeSleep := 4000
-	maxTimeSleep := 120000
-	for {
-		resp, err := http.Get(url + apiBase + expansion)
-		if err != nil {
-			return nil, err
-		}
-		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode == 429 {
-			if minTimeSleep > maxTimeSleep {
-				return nil, fmt.Errorf("Response failed with rate limit and \nbody: %s\n", body)
-			}
-			time.Sleep(time.Duration(minTimeSleep) * time.Millisecond)
-			minTimeSleep = minTimeSleep * E
-			continue
-		}
-		if resp.StatusCode > 299 {
-			return nil, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
-		}
-		return body, nil
-	}
-}
-
 func GetProjects(url string) ([]Project, error) {
 	expansion := "project"
-	body, err := GetBody(url, expansion)
+	body, err := getBody(context.Background(), url, expansion)
 	if err != nil {
 		return nil, err
 	}
@@ -73,9 +105,10 @@ func GetProjects(url string) ([]Project, error) {
 	return projects, nil
 }
 
-func GetIssues(url string, project *Project, issueInOneRequest int, goroutines int) error {
+func GetIssues(url string, project *Project) error {
+	g, ctx := errgroup.WithContext(context.Background())
 	escapedProjectName := `"` + URL.QueryEscape(project.ProjectName) + `"`
-	body, err := GetBody(url, fmt.Sprintf(
+	body, err := getBody(ctx, url, fmt.Sprintf(
 		"search?jql=project=%s&expand=changelog&startAt=0&maxResults=%d",
 		escapedProjectName,
 		issueInOneRequest,
@@ -87,8 +120,8 @@ func GetIssues(url string, project *Project, issueInOneRequest int, goroutines i
 		Total  int               `json:"total"`
 		Issues []json.RawMessage `json:"issues"`
 	}{}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("type mismatch in API response: %w", err)
+	if typeErr := json.Unmarshal(body, &resp); typeErr != nil {
+		return fmt.Errorf("Type mismatch in API response: %w", typeErr)
 	}
 	if resp.Total == 0 {
 		return nil
@@ -98,49 +131,40 @@ func GetIssues(url string, project *Project, issueInOneRequest int, goroutines i
 	pages := (resp.Total + issueInOneRequest - 1) / issueInOneRequest
 	goroutines = min(pages-1, goroutines)
 	jobs := make(chan int, pages-1)
-	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var requestDoCount int
 	start := time.Now()
 	for i := 0; i < goroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 			for startAt := range jobs {
-				body, err := GetBody(url, fmt.Sprintf(
+				body, err := getBody(ctx, url, fmt.Sprintf(
 					"search?jql=project=%s&expand=changelog&startAt=%d&maxResults=%d",
 					escapedProjectName,
 					startAt,
 					issueInOneRequest,
 				))
 				if err != nil {
-					fmt.Println(err)
-					return
+					fmt.Println("Body returned an error")
+					return err
 				}
 				resp := struct {
 					Issues []json.RawMessage `json:"issues"`
 				}{}
-				if err := json.Unmarshal(body, &resp); err != nil {
-					return
+				if typeErr := json.Unmarshal(body, &resp); typeErr != nil {
+					return fmt.Errorf("Type mismatch in API response: %w", typeErr)
 				}
 				mu.Lock()
 				project.Issues = append(project.Issues, resp.Issues...)
-				requestDoCount++
 				mu.Unlock()
 			}
-		}()
+			return nil
+		})
 	}
 	for i := 1; i < pages; i++ {
 		jobs <- i * issueInOneRequest
 	}
 	close(jobs)
-	wg.Wait()
-	if requestDoCount != pages-1 {
-		return fmt.Errorf(
-			"not all pages loaded: got %d expected %d",
-			requestDoCount,
-			pages-1,
-		)
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("Error fetching issues from project: %s %w", project.ProjectName, err)
 	}
 	fmt.Println(project.ProjectName+" was saved for time: ", time.Since(start))
 	return nil
