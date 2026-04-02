@@ -7,12 +7,12 @@ type PageInfo struct {
 }
 
 type ConnectorProject struct {
-	ProjectID   string `json:"id"`
-	ProjectName string `json:"name"`
-	Existence   bool   `json:"existence"`
+	ProjectID   string `json:"Id"`
+	ProjectName string `json:"Name"`
+	Existence   bool   `json:"Existence"`
 }
 
 type ProjectResponse struct {
-	Projects []ConnectorProject `json:"Projects"`
+	Projects []ConnectorProject `json:"data"`
 	PageInfo PageInfo           `json:"PageInfo"`
 }

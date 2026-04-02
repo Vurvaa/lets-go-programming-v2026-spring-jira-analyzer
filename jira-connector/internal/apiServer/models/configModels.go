@@ -9,7 +9,7 @@ type DBConfig struct {
 }
 
 type ServerConfig struct {
-	Repository    string `yaml:"repository"`
+	Repository    string `yaml:"jiraUrl"`
 	ConnectorPort uint   `yaml:"connector_port"`
 	ConnectorHost string `yaml:"connector_host"`
 }
