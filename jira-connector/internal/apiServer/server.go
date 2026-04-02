@@ -4,53 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
-	"time"
 
 	"jira-connector/internal/apiServer/handlers"
-	"jira-connector/internal/apiServer/serverConfig"
-	"jira-connector/internal/configReader"
+	"jira-connector/internal/apiServer/models"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
 	"jira-connector/internal/pusher"
 )
 
 type Server struct {
-	configReader *configReader.ConfigReader
-	config       *serverConfig.ServerConfig
-	storage      *pusher.Storage
+	repository string
+	host       string
+	port       uint
+	storage    *pusher.Storage
 }
 
-func NewServer() *Server {
-	reader := configReader.NewConfigReader("config.yaml")
-	cfg, err := reader.ReadServerConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	connectionString := "postgres://pguser:pgpwd@jira_postgres:5432/jira_db?sslmode=disable"
-
-	var store *pusher.Storage
-
-	for i := 0; i < 15; i++ {
-		store, err = pusher.NewStorage(connectionString)
-		if err == nil {
-			log.Println("Successfully connected to database")
-			break
-		}
-		log.Printf("Database not ready (attempt %d/15), waiting...", i+1)
-		time.Sleep(2 * time.Second)
-	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func NewServer(cfg models.ServerConfig, store *pusher.Storage) *Server {
 	return &Server{
-		configReader: reader,
-		config:       serverConfig.NewServerConfig(cfg.Repository, cfg.ConnectorHost, cfg.ConnectorPort),
-		storage:      store,
+		repository: cfg.Repository,
+		host:       cfg.ConnectorHost,
+		port:       cfg.ConnectorPort,
+		storage:    store,
 	}
 }
 
@@ -73,14 +48,14 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	project, err := connector.GetProject(server.config.Repository, projectKey)
+	project, err := connector.GetProject(server.repository, projectKey)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 
 		return
 	}
 
-	err = connector.GetIssues(server.config.Repository, project)
+	err = connector.GetIssues(server.repository, project)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 		return
@@ -107,7 +82,7 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 
 	limit, page, search := handlers.ParseProjectParameters(request)
 
-	projects, err := handlers.HandleProjects(server.config.Repository, search)
+	projects, err := handlers.HandleProjects(server.repository, search)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading list of projects: %v", err), http.StatusBadRequest)
 
@@ -128,7 +103,7 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 func (server *Server) Start() {
 	server.routes()
 
-	addr := fmt.Sprintf("%s:%d", server.config.ConnectorHost, server.config.ConnectorPort)
+	addr := fmt.Sprintf("%s:%d", server.host, server.port)
 	fmt.Println("listening on", addr)
 
 	err := http.ListenAndServe(addr, nil)

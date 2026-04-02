@@ -1,4 +1,4 @@
-package projectModels
+package models
 
 type PageInfo struct {
 	CurrentPage   int `json:"currentPage"`
