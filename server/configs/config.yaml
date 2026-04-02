@@ -7,4 +7,4 @@ db_passwd: pgpwd
 jiraUrl: https://issues.apache.org
 
 connector_host: jira-connector
-connector_port: 8080
+connector_port: 8003
