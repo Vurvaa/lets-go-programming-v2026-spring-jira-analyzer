@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"jira-connector/internal/apiServer/handlers"
@@ -30,28 +31,25 @@ func NewServer(cfg models.ServerConfig, store *pusher.Storage) *Server {
 }
 
 func (server *Server) routes() {
-	http.HandleFunc("GET /api/v1/projects", server.projects)
-	http.HandleFunc("POST /api/v1/updateProject", server.updateProject)
+	http.HandleFunc("GET /projects", server.projects)
+	http.HandleFunc("POST /updateProject", server.updateProject)
 }
 
 func (server *Server) updateProject(writer http.ResponseWriter, request *http.Request) {
 	if request.Method != "POST" {
 		http.Error(writer, "incorrect http method for /updateProject", http.StatusBadRequest)
-
 		return
 	}
 
 	projectKey := request.URL.Query().Get("project")
 	if projectKey == "" {
 		http.Error(writer, "project name was not passed to /updateProject", http.StatusBadRequest)
-
 		return
 	}
 
 	project, err := connector.GetProject(server.repository, projectKey)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-
 		return
 	}
 
@@ -64,12 +62,14 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 	parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		return
 	}
 
 	ctx := context.Background()
 	err = server.storage.SaveProject(ctx, parsedIssues, project)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while saving issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		return
 	}
 }
 
@@ -97,7 +97,10 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 		http.Error(writer, fmt.Sprintf("error while marshalling response: %v", err), http.StatusInternalServerError)
 	}
 
-	_, _ = writer.Write(response)
+	_, err = writer.Write(response)
+	if err != nil {
+		log.Println(fmt.Sprintf("error while writing response: %v", err))
+	}
 }
 
 func (server *Server) Start() {

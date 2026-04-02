@@ -14,8 +14,6 @@ import (
 func main() {
 	const configName = "configs/config.yaml"
 
-	time.Sleep(45 * time.Second)
-
 	db := postgres.NewDB(configName)
 	defer func() {
 		if err := db.Close(); err != nil {
@@ -27,12 +25,6 @@ func main() {
 	connectorRepo := connector.NewConnectorRepository(configName)
 	projectService := service.NewProjectService(connectorRepo, projectRepo)
 	projectHandler := handler.NewProjectHandler(projectService)
-
-	projects, err := projectService.GetAllProjectsFromDB()
-	if err != nil {
-		log.Fatalf("failed to get projects: %v", err)
-	}
-	log.Printf("projects: %+v", projects)
 
 	mux := http.NewServeMux()
 
@@ -49,6 +41,7 @@ func main() {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("failed to start API server: %v", err)
 	}

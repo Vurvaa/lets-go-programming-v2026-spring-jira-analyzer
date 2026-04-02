@@ -1,7 +1,14 @@
 jiraUrl: https://issues.apache.org
 
+db_host: db
+db_port: 5432
+db_name: jira_db
+db_user: pguser
+db_passwd: pgpwd
+
 connector_host: 0.0.0.0
-connector_port: 8080
+connector_port: 8003
+
 minTimeSleep: 4000
 maxTimeSleep: 120000
 issueInOneRequest: 200
