@@ -39,6 +39,7 @@ type Issue struct {
 		} `json:"status"`
 		CreatedTime string `json:"created"`
 		UpdatedTime string `json:"updated"`
+		ClosedTime  string `json:"resolutiondate"`
 		TimeSpent   int    `json:"timespent"`
 	} `json:"fields"`
 	StatusChanges []StatusChanges

@@ -40,7 +40,9 @@ func HandleProjects(url, search string) ([]models.Project, error) {
 		if isCorrectName {
 			responseProject := models.Project{
 				ProjectId:   project.ProjectId,
+				ProjectKey:  project.ProjectKey,
 				ProjectName: project.ProjectName,
+				ProjectUrl:  project.ProjectSelf,
 				Existence:   false}
 
 			responseProjects = append(responseProjects, responseProject)

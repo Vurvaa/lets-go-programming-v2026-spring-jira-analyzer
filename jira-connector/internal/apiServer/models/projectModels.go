@@ -8,7 +8,9 @@ type PageInfo struct {
 
 type Project struct {
 	ProjectId   string `json:"Id"`
+	ProjectKey  string `json:"Key"`
 	ProjectName string `json:"Name"`
+	ProjectUrl  string `json:"Url"`
 	Existence   bool   `json:"Existence"`
 }
 

@@ -8,7 +8,9 @@ type PageInfo struct {
 
 type ConnectorProject struct {
 	ProjectID   string `json:"Id"`
+	ProjectKey  string `json:"Key"`
 	ProjectName string `json:"Name"`
+	ProjectURL  string `json:"Url"`
 	Existence   bool   `json:"Existence"`
 }
 

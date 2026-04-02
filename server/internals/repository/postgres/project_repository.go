@@ -20,7 +20,9 @@ func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
 	rows, err := r.db.Query(
 		`SELECT
 			projects.id,
-			projects.name
+			projects.project_key,
+			projects.name,
+			projects.project_url
 		FROM projects
 		ORDER BY projects.id`,
 	)
@@ -37,7 +39,7 @@ func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
 
 	for rows.Next() {
 		var project model.Project
-		err := rows.Scan(&project.ProjectID, &project.Name)
+		err := rows.Scan(&project.ProjectID, &project.ProjectKey, &project.Name, &project.ProjectURL)
 		if err != nil {
 			log.Printf("Error on handling query to the database: %s", err.Error())
 			return projects, err
@@ -180,10 +182,12 @@ func (r *ProjectRepository) GetAverageIssuesCount(projectID string) (float64, er
 
 	row := r.db.QueryRow(
 		`
-		SELECT COALESCE(COUNT(*)::float / 7.0, 0)
+		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (closed_time - created_time))), 0)
 		FROM issues
 		WHERE project_id = $1
-		  AND created_time >= NOW() - INTERVAL '7 days'
+		  AND created_time IS NOT NULL
+		  AND closed_time IS NOT NULL
+		  AND closed_time >= created_time
 		`,
 		projectID,
 	)
