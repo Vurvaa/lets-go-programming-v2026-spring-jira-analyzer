@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"jira-connector/internal/apiServer/projectModels"
+	"jira-connector/internal/apiServer/models"
 	"jira-connector/internal/connector"
 	"math"
 	"net/http"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func GetProjectResponse(page, limit int, projects []projectModels.Project) projectModels.ProjectResponse {
+func GetProjectResponse(page, limit int, projects []models.Project) models.ProjectResponse {
 	projectsCount := len(projects)
 	startIndex := (page - 1) * limit
 	endIndex := startIndex + limit
@@ -17,9 +17,9 @@ func GetProjectResponse(page, limit int, projects []projectModels.Project) proje
 		endIndex = len(projects)
 	}
 
-	return projectModels.ProjectResponse{
+	return models.ProjectResponse{
 		Projects: projects[startIndex:endIndex],
-		PageInfo: projectModels.PageInfo{
+		PageInfo: models.PageInfo{
 			CurrentPage:   page,
 			PageCount:     int(math.Ceil(float64(projectsCount) / float64(limit))),
 			ProjectsCount: projectsCount,
@@ -27,18 +27,18 @@ func GetProjectResponse(page, limit int, projects []projectModels.Project) proje
 	}
 }
 
-func HandleProjects(url, search string) ([]projectModels.Project, error) {
+func HandleProjects(url, search string) ([]models.Project, error) {
 	projects, err := connector.GetProjects(url)
 	if err != nil {
 		return nil, err
 	}
 
-	var responseProjects []projectModels.Project
+	var responseProjects []models.Project
 
 	for _, project := range projects {
 		isCorrectName := strings.Contains(strings.ToLower(project.ProjectName), strings.ToLower(search))
 		if isCorrectName {
-			responseProject := projectModels.Project{
+			responseProject := models.Project{
 				ProjectId:   project.ProjectId,
 				ProjectName: project.ProjectName,
 				Existence:   false}

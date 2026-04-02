@@ -8,7 +8,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// encapsulates work with the database
 type Storage struct {
 	db *sql.DB
 }
