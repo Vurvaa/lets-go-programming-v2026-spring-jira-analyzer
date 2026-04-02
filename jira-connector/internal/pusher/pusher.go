@@ -11,7 +11,11 @@ import (
 func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issue, project *connector.Project) error {
 	log.Printf("Saving %d projects", len(issues))
 
-	if err := s.upsertProject(ctx, project.ProjectId, project.ProjectName); err != nil {
+	if err := s.upsertProject(
+		ctx, project.ProjectId,
+		project.ProjectKey,
+		project.ProjectName,
+		project.ProjectSelf); err != nil {
 		return fmt.Errorf("error of saving project: %w", err)
 	}
 
@@ -45,9 +49,9 @@ func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issu
 	return nil
 }
 
-func (s *Storage) upsertProject(ctx context.Context, projectID string, projectName string) error {
-	query := `INSERT INTO projects (id, name) VALUES ($1, $2) ON CONFLICT (id)DO UPDATE SET name = EXCLUDED.name`
-	_, err := s.db.ExecContext(ctx, query, projectID, projectName)
+func (s *Storage) upsertProject(ctx context.Context, projectID, projectKey, projectName, URL string) error {
+	query := `INSERT INTO projects (id, project_key, name, project_url) VALUES ($1, $2, $3, $4) ON CONFLICT (id)DO UPDATE SET name = EXCLUDED.name`
+	_, err := s.db.ExecContext(ctx, query, projectID, projectKey, projectName, URL)
 	return err
 }
 
@@ -87,8 +91,9 @@ func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) 
 			INSERT INTO issues (id, project_id, author_name,
 			                    assignee_name, summary, description,
 			                    type, priority, status,
-			                    created_time, updated_time, time_spent)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			                    created_time, updated_time, closed_time,
+			                    time_spent)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			ON CONFLICT (id) DO UPDATE SET
 					status = EXCLUDED.status,
 					updated_time = EXCLUDED.updated_time,
@@ -107,7 +112,8 @@ func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) 
 		issue.Fields.Status.Name,           // $9
 		issue.Fields.CreatedTime,           // $10
 		issue.Fields.UpdatedTime,           // $11
-		issue.Fields.TimeSpent,             // $12
+		issue.Fields.ClosedTime,            // $12
+		issue.Fields.TimeSpent,             // $13
 	)
 	if err != nil {
 		return fmt.Errorf("error of upserting issue: %w", err)

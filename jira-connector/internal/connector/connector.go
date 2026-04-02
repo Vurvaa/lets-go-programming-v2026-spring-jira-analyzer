@@ -19,7 +19,9 @@ import (
 
 type Project struct {
 	ProjectId   string `json:"id"`
+	ProjectKey  string `json:"key"`
 	ProjectName string `json:"name"`
+	ProjectSelf string `json:"self"`
 	Issues      []json.RawMessage
 }
 

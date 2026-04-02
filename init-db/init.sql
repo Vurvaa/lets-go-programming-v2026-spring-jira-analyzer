@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
-    name TEXT
+    project_key TEXT,
+    name TEXT,
+    project_url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS authors (
@@ -19,6 +21,7 @@ CREATE TABLE IF NOT EXISTS issues (
     status TEXT,
     created_time TIMESTAMP,
     updated_time TIMESTAMP,
+    closed_time TIMESTAMP,
     time_spent INT
 );
 
@@ -29,4 +32,16 @@ CREATE TABLE IF NOT EXISTS status_changes (
     change_time TIMESTAMP,
     from_status TEXT NOT NULL,
     to_status TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS open_task_time (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    creation_time TIMESTAMP NOT NULL,
+    data JSONB NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS task_priority_count (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    creation_time TIMESTAMP NOT NULL,
+    data JSONB NOT NULL
 );

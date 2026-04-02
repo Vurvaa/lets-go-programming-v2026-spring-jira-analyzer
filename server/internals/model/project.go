@@ -1,9 +1,10 @@
 package model
 
 type Project struct {
-	ProjectID   string `json:"project_id"`
-	Name        string `json:"name"`
-	IssuesCount int    `json:"issues_count"`
+	ProjectID  string `json:"Id"`
+	ProjectKey string `json:"Key"`
+	Name       string `json:"Name"`
+	ProjectURL string `json:"Url"`
 }
 
 type ProjectStats struct {
