@@ -31,7 +31,7 @@ func main() {
 	mux.HandleFunc("GET /api/v1/projects", projectHandler.GetAllProjectsFromDB)
 	mux.HandleFunc("GET /api/v1/projects/{id}", projectHandler.GetProjectStatsByID)
 	mux.HandleFunc("DELETE /api/v1/projects/{id}", projectHandler.DeleteProjectByID)
-	mux.HandleFunc("GET /api/v1/external/projects", projectHandler.GetAllProjectsFromRepository)
+	mux.HandleFunc("GET /api/v1/connector/projects", projectHandler.GetAllProjectsFromRepository)
 	mux.HandleFunc("POST /api/v1/connector/updateProject", projectHandler.UpdateProject)
 
 	log.Println("Starting API server on :8000")

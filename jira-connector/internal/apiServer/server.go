@@ -65,12 +65,15 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	ctx := context.Background()
-	err = server.storage.SaveProject(ctx, parsedIssues, project)
-	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while saving issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-		return
-	}
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte("Project update started"))
+
+	go func() {
+		ctx := context.Background()
+		if err := server.storage.SaveProject(ctx, parsedIssues, project); err != nil {
+			log.Println("Error saving project in background:", err)
+		}
+	}()
 }
 
 func (server *Server) projects(writer http.ResponseWriter, request *http.Request) {

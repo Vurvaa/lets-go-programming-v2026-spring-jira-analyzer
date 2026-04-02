@@ -63,11 +63,15 @@ func (h *ProjectHandler) GetProjectStatsByID(w http.ResponseWriter, r *http.Requ
 // DELETE /api/v1/projects/{id}
 func (h *ProjectHandler) DeleteProjectByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	if err := h.service.DeleteProject(id); err != nil {
-		http.Error(w, "Failed to delete", http.StatusNotFound)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+
+	w.WriteHeader(http.StatusAccepted)
+	w.Write([]byte("Deletion started"))
+
+	go func(projectID string) {
+		if err := h.service.DeleteProject(projectID); err != nil {
+			log.Println("Error deleting project in background:", err)
+		}
+	}(id)
 }
 
 // GET /api/v1/connector/projects

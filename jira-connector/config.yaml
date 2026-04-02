@@ -12,4 +12,4 @@ connector_port: 8003
 minTimeSleep: 4000
 maxTimeSleep: 120000
 issueInOneRequest: 200
-threadCount: 30
+threadCount: 10
