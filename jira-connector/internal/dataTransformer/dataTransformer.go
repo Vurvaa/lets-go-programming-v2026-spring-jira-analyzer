@@ -79,26 +79,6 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 	return changes, nil
 }
 
-// Deprecated
-func ParseIssues(projects []connector.Project) ([]Issue, error) {
-	var allIssues []Issue
-	for _, project := range projects {
-		for _, rawIssue := range project.Issues {
-			var issue Issue
-			if typeErr := json.Unmarshal(rawIssue, &issue); typeErr != nil {
-				return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
-			}
-			changes, err := parseStatusChanges(rawIssue)
-			if err != nil {
-				return nil, err
-			}
-			issue.StatusChanges = changes
-			allIssues = append(allIssues, issue)
-		}
-	}
-	return allIssues, nil
-}
-
 func ParseIssuesOfProject(project *connector.Project) ([]Issue, error) {
 	var allIssues []Issue
 	for _, rawIssue := range project.Issues {

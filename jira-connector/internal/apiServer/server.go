@@ -35,7 +35,7 @@ func NewServer() *Server {
 	connectionString := "postgres://pguser:pgpwd@jira_postgres:5432/jira_db?sslmode=disable"
 
 	var store *pusher.Storage
-	// Trying to connect to the database within 30 seconds
+
 	for i := 0; i < 15; i++ {
 		store, err = pusher.NewStorage(connectionString)
 		if err == nil {
@@ -52,7 +52,7 @@ func NewServer() *Server {
 
 	return &Server{
 		configReader: reader,
-		config:       serverConfig.NewServerConfig(cfg.ConnectorHost, cfg.ConnectorPort),
+		config:       serverConfig.NewServerConfig(cfg.Repository, cfg.ConnectorHost, cfg.ConnectorPort),
 		storage:      store,
 	}
 }
@@ -76,28 +76,26 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 		return
 	}
 
-	project, err := connector.GetProject("https://issues.apache.org", projectKey)
+	project, err := connector.GetProject(server.config.Repository, projectKey)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 
 		return
 	}
 
-	var projects []connector.Project
+	err = connector.GetIssues(server.config.Repository, project)
+	if err != nil {
+		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		return
+	}
 
-	projects = append(projects, connector.Project{
-		ProjectId:   project.ProjectId,
-		ProjectName: project.ProjectName,
-		Issues:      project.Issues,
-	})
-
-	parsedIssues, err := dataTransformer.ParseIssues(projects)
+	parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 	}
 
 	ctx := context.Background()
-	err = server.storage.SaveAll(ctx, parsedIssues, projects)
+	err = server.storage.SaveProject(ctx, parsedIssues, project)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while saving issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 	}

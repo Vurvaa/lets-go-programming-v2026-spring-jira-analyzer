@@ -6,6 +6,6 @@ import (
 )
 
 func main() {
-	connector.InitParametrs("config.yaml")
+	connector.InitParameters("config.yaml")
 	apiServer.NewServer().Start()
 }

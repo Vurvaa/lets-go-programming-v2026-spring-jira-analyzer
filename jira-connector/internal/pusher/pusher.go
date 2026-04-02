@@ -8,18 +8,16 @@ import (
 	"log"
 )
 
-func (s *Storage) SaveAll(ctx context.Context, issues []dataTransformer.Issue, projects []connector.Project) error {
-	// the method starts a chain of saving data for all tables
+func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issue, project *connector.Project) error {
 	log.Printf("Saving %d projects", len(issues))
-	for _, project := range projects {
-		if err := s.upsertProject(ctx, project.ProjectId, project.ProjectName); err != nil {
-			return fmt.Errorf("error of saving project: %w", err)
-		}
+
+	if err := s.upsertProject(ctx, project.ProjectId, project.ProjectName); err != nil {
+		return fmt.Errorf("error of saving project: %w", err)
 	}
 
 	log.Printf("Starting save %d issues", len(issues))
 	for i, issue := range issues {
-		if i%100 == 0 { // Log every 100 tasks to avoid spam
+		if i%100 == 0 {
 			log.Printf("Processing issues: %d/%d...", i, len(issues))
 		}
 
@@ -65,7 +63,6 @@ func (s *Storage) upsertStatusChanges(ctx context.Context, issueID string, chang
 			VALUES ($1, $2, $3, $4, $5)`
 
 	for _, statusChange := range changes {
-		// The author of changes may not be the author or assignee of the task
 		if err := s.upsertAuthor(ctx, statusChange.AuthorName); err != nil {
 			return fmt.Errorf("error of pre-saving status change author: %w", err)
 		}

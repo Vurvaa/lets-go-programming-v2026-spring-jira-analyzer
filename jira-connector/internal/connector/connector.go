@@ -28,7 +28,7 @@ const (
 	factor  int    = 2
 )
 
-type ConnectorParametrs struct {
+type Parameters struct {
 	MinTimeSleep      int64 `yaml:"minTimeSleep"`
 	MaxTimeSleep      int64 `yaml:"maxTimeSleep"`
 	Goroutines        int   `yaml:"threadCount"`
@@ -36,20 +36,20 @@ type ConnectorParametrs struct {
 }
 
 var (
-	cp     *ConnectorParametrs
+	cp     *Parameters
 	client = http.Client{
 		Timeout: time.Minute,
 	}
 	once sync.Once
 )
 
-func InitParametrs(path string) {
+func InitParameters(path string) {
 	once.Do(func() {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			log.Fatal(err)
 		}
-		cp = &ConnectorParametrs{}
+		cp = &Parameters{}
 		if err = yaml.Unmarshal(data, cp); err != nil {
 			log.Fatal(err)
 		}
@@ -106,10 +106,12 @@ func GetProject(url, key string) (*Project, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var project Project
 	if typeErr := json.Unmarshal(body, &project); typeErr != nil {
 		return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
 	}
+
 	return &project, nil
 }
 
