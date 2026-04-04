@@ -8,6 +8,7 @@ import (
 
 	"server/internals/handler"
 	"server/internals/repository/connector"
+	"server/internals/router"
 	"server/internals/service"
 )
 
@@ -25,19 +26,12 @@ func main() {
 	connectorRepo := connector.NewConnectorRepository(configName)
 	projectService := service.NewProjectService(connectorRepo, projectRepo)
 	projectHandler := handler.NewProjectHandler(projectService)
-
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /api/v1/projects", projectHandler.GetAllProjectsFromDB)
-	mux.HandleFunc("GET /api/v1/projects/{id}", projectHandler.GetProjectStatsByID)
-	mux.HandleFunc("DELETE /api/v1/projects/{id}", projectHandler.DeleteProjectByID)
-	mux.HandleFunc("GET /api/v1/connector/projects", projectHandler.GetAllProjectsFromRepository)
-	mux.HandleFunc("POST /api/v1/connector/updateProject", projectHandler.UpdateProject)
+	projectRouter := router.NewRouter(projectHandler)
 
 	log.Println("Starting API server on :8000")
 	server := &http.Server{
 		Addr:         ":8000",
-		Handler:      mux,
+		Handler:      projectRouter.Handler(),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
