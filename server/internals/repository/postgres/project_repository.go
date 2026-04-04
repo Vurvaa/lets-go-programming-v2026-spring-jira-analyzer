@@ -7,18 +7,10 @@ import (
 	"server/internals/model"
 )
 
-type ProjectRepository struct {
-	db *sql.DB
-}
-
-func NewProjectRepository(db *sql.DB) *ProjectRepository {
-	return &ProjectRepository{db: db}
-}
-
-func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
+func (repos *DBRepository) GetAllProjects() ([]model.Project, error) {
 	projects := make([]model.Project, 0)
 
-	rows, err := r.db.Query(
+	rows, err := repos.db.Query(
 		`SELECT
 			projects.id,
 			projects.project_key,
@@ -56,10 +48,10 @@ func (r *ProjectRepository) GetAllProjects() ([]model.Project, error) {
 	return projects, nil
 }
 
-func (r *ProjectRepository) ProjectExistsByID(projectID string) (bool, error) {
+func (repos *DBRepository) ProjectExistsByID(projectID string) (bool, error) {
 	var exists bool
 
-	err := r.db.QueryRow(
+	err := repos.db.QueryRow(
 		`SELECT EXISTS(
 			SELECT 1
 			FROM projects
@@ -75,10 +67,10 @@ func (r *ProjectRepository) ProjectExistsByID(projectID string) (bool, error) {
 	return exists, nil
 }
 
-func (r *ProjectRepository) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
+func (repos *DBRepository) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
 	var stats model.ProjectStats
 
-	row := r.db.QueryRow(
+	row := repos.db.QueryRow(
 		`
 		SELECT
 			p.id,
@@ -131,10 +123,10 @@ func (r *ProjectRepository) GetProjectStatsByID(projectID string) (model.Project
 	return stats, nil
 }
 
-func (r *ProjectRepository) GetReopenedIssuesCount(projectID string) (int, error) {
+func (repos *DBRepository) GetReopenedIssuesCount(projectID string) (int, error) {
 	var count int
 
-	row := r.db.QueryRow(
+	row := repos.db.QueryRow(
 		`
 		SELECT COUNT(DISTINCT sc.issue_id)
 		FROM status_changes sc
@@ -154,10 +146,10 @@ func (r *ProjectRepository) GetReopenedIssuesCount(projectID string) (int, error
 	return count, nil
 }
 
-func (r *ProjectRepository) GetAverageIssuesCount(projectID string) (float64, error) {
+func (repos *DBRepository) GetAverageIssuesCount(projectID string) (float64, error) {
 	var avg float64
 
-	row := r.db.QueryRow(
+	row := repos.db.QueryRow(
 		`
 		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (closed_time - created_time))), 0)
 		FROM issues
@@ -178,10 +170,10 @@ func (r *ProjectRepository) GetAverageIssuesCount(projectID string) (float64, er
 	return avg, nil
 }
 
-func (r *ProjectRepository) GetAverageTime(projectID string) (float64, error) {
+func (repos *DBRepository) GetAverageTime(projectID string) (float64, error) {
 	var avg float64
 
-	row := r.db.QueryRow(
+	row := repos.db.QueryRow(
 		`
 		SELECT COALESCE(AVG(time_spent), 0)
 		FROM issues
@@ -200,20 +192,20 @@ func (r *ProjectRepository) GetAverageTime(projectID string) (float64, error) {
 	return avg, nil
 }
 
-func (r *ProjectRepository) GetByID(id string) (*model.Project, error) {
+func (repos *DBRepository) GetByID(id string) (*model.Project, error) {
 	query := `SELECT id, name FROM projects WHERE id = $1`
 	var project model.Project
-	err := r.db.QueryRow(query, id).Scan(&project.ProjectID, &project.Name)
+	err := repos.db.QueryRow(query, id).Scan(&project.ProjectID, &project.Name)
 	if err != nil {
 		return nil, err
 	}
 	return &project, nil
 }
 
-func (r *ProjectRepository) GetProjectIDByKey(projectKey string) (string, error) {
+func (repos *DBRepository) GetProjectIDByKey(projectKey string) (string, error) {
 	var projectID string
 
-	err := r.db.QueryRow(
+	err := repos.db.QueryRow(
 		`
 		SELECT id
 		FROM projects
@@ -235,85 +227,8 @@ func (r *ProjectRepository) GetProjectIDByKey(projectKey string) (string, error)
 	return projectID, nil
 }
 
-func (r *ProjectRepository) DeleteProjectByID(id string) error {
+func (repos *DBRepository) DeleteProjectByID(id string) error {
 	query := `DELETE FROM projects WHERE id = $1`
-	_, err := r.db.Exec(query, id)
+	_, err := repos.db.Exec(query, id)
 	return err
-}
-
-func (r *ProjectRepository) GetIssueOpenTimesByProjectID(projectID string) ([]model.IssueOpenTimeRow, error) {
-	rows, err := r.db.Query(
-		`
-		SELECT created_time, closed_time
-		FROM issues
-		WHERE project_id = $1
-		  AND created_time IS NOT NULL
-		  AND closed_time IS NOT NULL
-		  AND closed_time >= created_time
-		`,
-		projectID,
-	)
-	if err != nil {
-		log.Printf("error while getting issue open times for project %s: %v", projectID, err)
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make([]model.IssueOpenTimeRow, 0)
-
-	for rows.Next() {
-		var row model.IssueOpenTimeRow
-
-		if err := rows.Scan(&row.CreatedTime, &row.ClosedTime); err != nil {
-			log.Printf("error while scanning issue open times for project %s: %v", projectID, err)
-			return nil, err
-		}
-
-		result = append(result, row)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Printf("rows error while getting issue open times for project %s: %v", projectID, err)
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (r *ProjectRepository) GetIssuePrioritiesByProjectID(projectID string) ([]model.IssuePriorityRow, error) {
-	rows, err := r.db.Query(
-		`
-		SELECT priority
-		FROM issues
-		WHERE project_id = $1
-		  AND priority IS NOT NULL
-		  AND priority <> ''
-		`,
-		projectID,
-	)
-	if err != nil {
-		log.Printf("error while getting issue priorities for project %s: %v", projectID, err)
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make([]model.IssuePriorityRow, 0)
-
-	for rows.Next() {
-		var row model.IssuePriorityRow
-
-		if err := rows.Scan(&row.Priority); err != nil {
-			log.Printf("error while scanning issue priorities for project %s: %v", projectID, err)
-			return nil, err
-		}
-
-		result = append(result, row)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Printf("rows error while getting issue priorities for project %s: %v", projectID, err)
-		return nil, err
-	}
-
-	return result, nil
 }

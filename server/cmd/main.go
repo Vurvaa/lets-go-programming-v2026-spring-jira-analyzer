@@ -21,7 +21,7 @@ func main() {
 		}
 	}()
 
-	projectRepo := postgres.NewProjectRepository(db)
+	projectRepo := postgres.NewDBRepository(db)
 	connectorRepo := connector.NewConnectorRepository(configName)
 	projectService := service.NewProjectService(connectorRepo, projectRepo)
 	projectHandler := handler.NewProjectHandler(projectService)

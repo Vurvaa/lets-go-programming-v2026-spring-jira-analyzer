@@ -5,10 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"server/internals/model"
 )
 
-func (r *ProjectRepository) SaveOpenTaskTime(projectID string, data []byte) error {
-	_, err := r.db.Exec(
+func (repos *DBRepository) SaveOpenTaskTime(projectID string, data []byte) error {
+	_, err := repos.db.Exec(
 		`
 		INSERT INTO open_task_time (project_id, creation_time, data)
 		VALUES ($1, NOW(), $2::jsonb)
@@ -28,8 +29,8 @@ func (r *ProjectRepository) SaveOpenTaskTime(projectID string, data []byte) erro
 	return nil
 }
 
-func (r *ProjectRepository) SaveTaskPriorityCount(projectID string, data []byte) error {
-	_, err := r.db.Exec(
+func (repos *DBRepository) SaveTaskPriorityCount(projectID string, data []byte) error {
+	_, err := repos.db.Exec(
 		`
 		INSERT INTO task_priority_count (project_id, creation_time, data)
 		VALUES ($1, NOW(), $2::jsonb)
@@ -49,10 +50,10 @@ func (r *ProjectRepository) SaveTaskPriorityCount(projectID string, data []byte)
 	return nil
 }
 
-func (r *ProjectRepository) GetOpenTaskTime(projectID string) ([]byte, error) {
+func (repos *DBRepository) GetOpenTaskTime(projectID string) ([]byte, error) {
 	var data []byte
 
-	err := r.db.QueryRow(
+	err := repos.db.QueryRow(
 		`
 		SELECT data
 		FROM open_task_time
@@ -73,10 +74,10 @@ func (r *ProjectRepository) GetOpenTaskTime(projectID string) ([]byte, error) {
 	return data, nil
 }
 
-func (r *ProjectRepository) GetTaskPriorityCount(projectID string) ([]byte, error) {
+func (repos *DBRepository) GetTaskPriorityCount(projectID string) ([]byte, error) {
 	var data []byte
 
-	err := r.db.QueryRow(
+	err := repos.db.QueryRow(
 		`
 		SELECT data
 		FROM task_priority_count
@@ -97,8 +98,8 @@ func (r *ProjectRepository) GetTaskPriorityCount(projectID string) ([]byte, erro
 	return data, nil
 }
 
-func (r *ProjectRepository) DeleteProjectAnalytics(ctx context.Context, projectID string) error {
-	tx, err := r.db.BeginTx(ctx, nil)
+func (repos *DBRepository) DeleteProjectAnalytics(ctx context.Context, projectID string) error {
+	tx, err := repos.db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("error while starting transaction for deleting analytics of project %s: %v", projectID, err)
 		return err
@@ -144,10 +145,10 @@ func (r *ProjectRepository) DeleteProjectAnalytics(ctx context.Context, projectI
 	return nil
 }
 
-func (r *ProjectRepository) HasAnyAnalytics(ctx context.Context, projectID string) (bool, error) {
+func (repos *DBRepository) HasAnyAnalytics(ctx context.Context, projectID string) (bool, error) {
 	var exists bool
 
-	err := r.db.QueryRowContext(
+	err := repos.db.QueryRowContext(
 		ctx,
 		`
 		SELECT
@@ -172,4 +173,81 @@ func (r *ProjectRepository) HasAnyAnalytics(ctx context.Context, projectID strin
 	}
 
 	return exists, nil
+}
+
+func (repos *DBRepository) GetIssueOpenTimesByProjectID(projectID string) ([]model.IssueOpenTimeRow, error) {
+	rows, err := repos.db.Query(
+		`
+		SELECT created_time, closed_time
+		FROM issues
+		WHERE project_id = $1
+		  AND created_time IS NOT NULL
+		  AND closed_time IS NOT NULL
+		  AND closed_time >= created_time
+		`,
+		projectID,
+	)
+	if err != nil {
+		log.Printf("error while getting issue open times for project %s: %v", projectID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]model.IssueOpenTimeRow, 0)
+
+	for rows.Next() {
+		var row model.IssueOpenTimeRow
+
+		if err := rows.Scan(&row.CreatedTime, &row.ClosedTime); err != nil {
+			log.Printf("error while scanning issue open times for project %s: %v", projectID, err)
+			return nil, err
+		}
+
+		result = append(result, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("rows error while getting issue open times for project %s: %v", projectID, err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (repos *DBRepository) GetIssuePrioritiesByProjectID(projectID string) ([]model.IssuePriorityRow, error) {
+	rows, err := repos.db.Query(
+		`
+		SELECT priority
+		FROM issues
+		WHERE project_id = $1
+		  AND priority IS NOT NULL
+		  AND priority <> ''
+		`,
+		projectID,
+	)
+	if err != nil {
+		log.Printf("error while getting issue priorities for project %s: %v", projectID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]model.IssuePriorityRow, 0)
+
+	for rows.Next() {
+		var row model.IssuePriorityRow
+
+		if err := rows.Scan(&row.Priority); err != nil {
+			log.Printf("error while scanning issue priorities for project %s: %v", projectID, err)
+			return nil, err
+		}
+
+		result = append(result, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("rows error while getting issue priorities for project %s: %v", projectID, err)
+		return nil, err
+	}
+
+	return result, nil
 }
