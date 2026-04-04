@@ -10,12 +10,12 @@ import (
 
 type ProjectService struct {
 	connectorRepository *connectorRepo.Repository
-	projectRepository   *postgresRepo.ProjectRepository
+	projectRepository   *postgresRepo.DBRepository
 }
 
 func NewProjectService(
 	connectorRepository *connectorRepo.Repository,
-	projectRepository *postgresRepo.ProjectRepository,
+	projectRepository *postgresRepo.DBRepository,
 ) *ProjectService {
 	return &ProjectService{
 		connectorRepository: connectorRepository,

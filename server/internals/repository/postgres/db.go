@@ -9,6 +9,14 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type DBRepository struct {
+	db *sql.DB
+}
+
+func NewDBRepository(db *sql.DB) *DBRepository {
+	return &DBRepository{db: db}
+}
+
 func NewDB(configName string) *sql.DB {
 	cfg := config.LoadDBConfig(configName)
 	if cfg == nil {
