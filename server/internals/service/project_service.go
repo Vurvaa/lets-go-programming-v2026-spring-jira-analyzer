@@ -58,7 +58,7 @@ func (s *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, 
 }
 
 func (s *ProjectService) DeleteProject(id string) error {
-	return s.projectRepository.Delete(id)
+	return s.projectRepository.DeleteProjectByID(id)
 }
 
 func (s *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {

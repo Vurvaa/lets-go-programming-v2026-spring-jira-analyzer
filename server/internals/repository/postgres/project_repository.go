@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"server/internals/model"
 )
@@ -72,30 +73,6 @@ func (r *ProjectRepository) ProjectExistsByID(projectID string) (bool, error) {
 	}
 
 	return exists, nil
-}
-
-func (r *ProjectRepository) DeleteProjectByID(projectID string) error {
-	result, err := r.db.Exec(
-		`DELETE FROM projects
-		 WHERE id = $1`,
-		projectID,
-	)
-	if err != nil {
-		log.Printf("Error while deleting project id %s: %v", projectID, err)
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		log.Printf("Error while checking deleted rows for project id %s: %v", projectID, err)
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
 }
 
 func (r *ProjectRepository) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
@@ -233,8 +210,110 @@ func (r *ProjectRepository) GetByID(id string) (*model.Project, error) {
 	return &project, nil
 }
 
-func (r *ProjectRepository) Delete(id string) error {
+func (r *ProjectRepository) GetProjectIDByKey(projectKey string) (string, error) {
+	var projectID string
+
+	err := r.db.QueryRow(
+		`
+		SELECT id
+		FROM projects
+		WHERE project_key = $1
+		`,
+		projectKey,
+	).Scan(&projectID)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			log.Printf("project with key %s was not found", projectKey)
+			return "", sql.ErrNoRows
+		}
+
+		log.Printf("error while getting project id by key %s: %v", projectKey, err)
+		return "", err
+	}
+
+	return projectID, nil
+}
+
+func (r *ProjectRepository) DeleteProjectByID(id string) error {
 	query := `DELETE FROM projects WHERE id = $1`
 	_, err := r.db.Exec(query, id)
 	return err
+}
+
+func (r *ProjectRepository) GetIssueOpenTimesByProjectID(projectID string) ([]model.IssueOpenTimeRow, error) {
+	rows, err := r.db.Query(
+		`
+		SELECT created_time, closed_time
+		FROM issues
+		WHERE project_id = $1
+		  AND created_time IS NOT NULL
+		  AND closed_time IS NOT NULL
+		  AND closed_time >= created_time
+		`,
+		projectID,
+	)
+	if err != nil {
+		log.Printf("error while getting issue open times for project %s: %v", projectID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]model.IssueOpenTimeRow, 0)
+
+	for rows.Next() {
+		var row model.IssueOpenTimeRow
+
+		if err := rows.Scan(&row.CreatedTime, &row.ClosedTime); err != nil {
+			log.Printf("error while scanning issue open times for project %s: %v", projectID, err)
+			return nil, err
+		}
+
+		result = append(result, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("rows error while getting issue open times for project %s: %v", projectID, err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *ProjectRepository) GetIssuePrioritiesByProjectID(projectID string) ([]model.IssuePriorityRow, error) {
+	rows, err := r.db.Query(
+		`
+		SELECT priority
+		FROM issues
+		WHERE project_id = $1
+		  AND priority IS NOT NULL
+		  AND priority <> ''
+		`,
+		projectID,
+	)
+	if err != nil {
+		log.Printf("error while getting issue priorities for project %s: %v", projectID, err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]model.IssuePriorityRow, 0)
+
+	for rows.Next() {
+		var row model.IssuePriorityRow
+
+		if err := rows.Scan(&row.Priority); err != nil {
+			log.Printf("error while scanning issue priorities for project %s: %v", projectID, err)
+			return nil, err
+		}
+
+		result = append(result, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("rows error while getting issue priorities for project %s: %v", projectID, err)
+		return nil, err
+	}
+
+	return result, nil
 }
