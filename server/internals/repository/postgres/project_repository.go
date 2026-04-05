@@ -74,6 +74,7 @@ func (repos *DBRepository) GetProjectStatsByID(projectID string) (model.ProjectS
 		`
 		SELECT
 			p.id,
+			p.project_key,
 			p.name,
 
 			COUNT(i.id) AS all_issues_count,
@@ -101,13 +102,14 @@ func (repos *DBRepository) GetProjectStatsByID(projectID string) (model.ProjectS
 		FROM projects p
 		LEFT JOIN issues i ON i.project_id = p.id
 		WHERE p.id = $1
-		GROUP BY p.id, p.name
+		GROUP BY p.id, p.project_key, p.name
 		`,
 		projectID,
 	)
 
 	err := row.Scan(
 		&stats.ProjectID,
+		&stats.Key,
 		&stats.Name,
 		&stats.AllIssuesCount,
 		&stats.OpenIssuesCount,
@@ -190,16 +192,6 @@ func (repos *DBRepository) GetAverageTime(projectID string) (float64, error) {
 	}
 
 	return avg, nil
-}
-
-func (repos *DBRepository) GetByID(id string) (*model.Project, error) {
-	query := `SELECT id, name FROM projects WHERE id = $1`
-	var project model.Project
-	err := repos.db.QueryRow(query, id).Scan(&project.ProjectID, &project.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &project, nil
 }
 
 func (repos *DBRepository) GetProjectIDByKey(projectKey string) (string, error) {

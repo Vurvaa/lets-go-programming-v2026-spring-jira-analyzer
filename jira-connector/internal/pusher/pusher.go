@@ -2,6 +2,7 @@ package pusher
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
@@ -100,6 +101,11 @@ func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) 
 					time_spent = EXCLUDED.time_spent,
 					summary = EXCLUDED.summary`
 
+	closedTime := sql.NullString{
+		String: issue.Fields.ClosedTime,
+		Valid:  issue.Fields.ClosedTime != "",
+	}
+
 	_, err := s.db.ExecContext(ctx, query,
 		issue.IssueID,                      // $1
 		issue.Fields.Project.ProjectID,     // $2
@@ -112,7 +118,7 @@ func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) 
 		issue.Fields.Status.Name,           // $9
 		issue.Fields.CreatedTime,           // $10
 		issue.Fields.UpdatedTime,           // $11
-		issue.Fields.ClosedTime,            // $12
+		closedTime,                         // $12
 		issue.Fields.TimeSpent,             // $13
 	)
 	if err != nil {
