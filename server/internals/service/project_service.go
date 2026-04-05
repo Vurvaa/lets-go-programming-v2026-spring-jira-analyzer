@@ -23,12 +23,12 @@ func NewProjectService(
 	}
 }
 
-func (s *ProjectService) GetAllProjectsFromDB() ([]model.Project, error) {
-	return s.projectRepository.GetAllProjects()
+func (svc *ProjectService) GetAllProjectsFromDB() ([]model.Project, error) {
+	return svc.projectRepository.GetAllProjects()
 }
 
-func (s *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, error) {
-	body, err := s.connectorRepository.GetAllProjects(rawQuery)
+func (svc *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, error) {
+	body, err := svc.connectorRepository.GetAllProjects(rawQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (s *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, 
 	}
 
 	for i := range projectResponse.Projects {
-		exists, err := s.projectRepository.ProjectExistsByID(projectResponse.Projects[i].ProjectID)
+		exists, err := svc.projectRepository.ProjectExistsByID(projectResponse.Projects[i].ProjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -57,39 +57,37 @@ func (s *ProjectService) GetAllProjectsFromRepository(rawQuery string) ([]byte, 
 	return updatedBody, nil
 }
 
-func (s *ProjectService) DeleteProject(id string) error {
-	return s.projectRepository.DeleteProjectByID(id)
+func (svc *ProjectService) DeleteProject(id string) error {
+	return svc.projectRepository.DeleteProjectByID(id)
 }
 
-func (s *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
-	stats, err := s.projectRepository.GetProjectStatsByID(projectID)
+func (svc *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectStats, error) {
+	stats, err := svc.projectRepository.GetProjectStatsByID(projectID)
 	if err != nil {
 		return stats, err
 	}
 
-	reopenedIssuesCount, err := s.projectRepository.GetReopenedIssuesCount(projectID)
+	reopenedIssuesCount, err := svc.projectRepository.GetReopenedIssuesCount(projectID)
 	if err != nil {
 		return stats, err
 	}
 	stats.ReopenedIssuesCount = reopenedIssuesCount
 
-	averageIssuesCount, err := s.projectRepository.GetAverageIssuesCount(projectID)
+	averageIssuesCount, err := svc.projectRepository.GetAverageIssuesCount(projectID)
 	if err != nil {
 		return stats, err
 	}
 	stats.AverageIssuesCount = averageIssuesCount
 
-	averageTime, err := s.projectRepository.GetAverageTime(projectID)
+	averageTime, err := svc.projectRepository.GetAverageTime(projectID)
 	if err != nil {
 		return stats, err
 	}
 	stats.AverageTime = averageTime
 
-	stats.Key = stats.ProjectID
-
 	return stats, nil
 }
 
-func (s *ProjectService) UpdateProject(rawQuery string) ([]byte, error) {
-	return s.connectorRepository.UpdateProject(rawQuery)
+func (svc *ProjectService) UpdateProject(rawQuery string) ([]byte, error) {
+	return svc.connectorRepository.UpdateProject(rawQuery)
 }

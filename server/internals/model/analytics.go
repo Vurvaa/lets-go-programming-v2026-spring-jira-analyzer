@@ -1,10 +1,13 @@
 package model
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type IssueOpenTimeRow struct {
 	CreatedTime time.Time
-	ClosedTime  time.Time
+	ClosedTime  sql.NullTime
 }
 
 type IssuePriorityRow struct {
@@ -12,14 +15,14 @@ type IssuePriorityRow struct {
 }
 
 type GraphData struct {
-	Categories []string       `json:"categories"`
+	Categories []string       `json:"data"`
 	Count      map[string]int `json:"count"`
 }
 
-type GraphResponse struct {
-	Data *GraphData `json:"data"`
+type CompareGraphData struct {
+	Data  []string         `json:"data"`
+	Count map[string][]int `json:"count"`
 }
-
 type IsAnalyzedResponse struct {
 	IsAnalyzed bool `json:"isAnalyzed"`
 }

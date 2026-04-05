@@ -1,7 +1,6 @@
 package postgres
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"log"
@@ -98,21 +97,8 @@ func (repos *DBRepository) GetTaskPriorityCount(projectID string) ([]byte, error
 	return data, nil
 }
 
-func (repos *DBRepository) DeleteProjectAnalytics(ctx context.Context, projectID string) error {
-	tx, err := repos.db.BeginTx(ctx, nil)
-	if err != nil {
-		log.Printf("error while starting transaction for deleting analytics of project %s: %v", projectID, err)
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	_, err = tx.ExecContext(
-		ctx,
+func (repos *DBRepository) DeleteProjectAnalytics(projectID string) error {
+	_, err := repos.db.Exec(
 		`
 		DELETE FROM open_task_time
 		WHERE project_id = $1
@@ -124,8 +110,7 @@ func (repos *DBRepository) DeleteProjectAnalytics(ctx context.Context, projectID
 		return err
 	}
 
-	_, err = tx.ExecContext(
-		ctx,
+	_, err = repos.db.Exec(
 		`
 		DELETE FROM task_priority_count
 		WHERE project_id = $1
@@ -137,19 +122,13 @@ func (repos *DBRepository) DeleteProjectAnalytics(ctx context.Context, projectID
 		return err
 	}
 
-	if err = tx.Commit(); err != nil {
-		log.Printf("error while committing analytics delete transaction for project %s: %v", projectID, err)
-		return err
-	}
-
 	return nil
 }
 
-func (repos *DBRepository) HasAnyAnalytics(ctx context.Context, projectID string) (bool, error) {
+func (repos *DBRepository) HasAnyAnalytics(projectID string) (bool, error) {
 	var exists bool
 
-	err := repos.db.QueryRowContext(
-		ctx,
+	err := repos.db.QueryRow(
 		`
 		SELECT
 			EXISTS (
@@ -181,9 +160,7 @@ func (repos *DBRepository) GetIssueOpenTimesByProjectID(projectID string) ([]mod
 		SELECT created_time, closed_time
 		FROM issues
 		WHERE project_id = $1
-		  AND created_time IS NOT NULL
-		  AND closed_time IS NOT NULL
-		  AND closed_time >= created_time
+  		AND created_time IS NOT NULL
 		`,
 		projectID,
 	)
