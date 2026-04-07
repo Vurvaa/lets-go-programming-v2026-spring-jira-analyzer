@@ -19,7 +19,7 @@ func main() {
 	db := postgres.NewDB(configName)
 	defer func() {
 		if err := db.Close(); err != nil {
-			logger.Instance.Errorf("failed to close db: %v", err)
+			logger.Instance.WithError(err).Error("failed to close db")
 		}
 	}()
 
@@ -38,6 +38,6 @@ func main() {
 	}
 
 	if err := server.ListenAndServe(); err != nil {
-		logger.Instance.Fatal("failed to start API server: %v", err)
+		logger.Instance.WithError(err).Fatal("failed to start API server")
 	}
 }
