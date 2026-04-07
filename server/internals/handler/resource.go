@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
+	"server/internals/logger"
 	"strconv"
 )
 
@@ -22,7 +22,7 @@ func (handler *ProjectHandler) GetAllProjectsFromDB(writer http.ResponseWriter, 
 
 	projects, err := handler.service.GetAllProjectsFromDB()
 	if err != nil {
-		log.Printf("DEBUG ERROR: %v", err)
+		logger.Instance.WithError(err).Error("DEBUG ERROR")
 		writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		writer.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(writer).Encode(map[string]string{"error": "Internal Server Error"})
@@ -43,7 +43,7 @@ func (handler *ProjectHandler) GetProjectStatsByID(writer http.ResponseWriter, r
 			http.Error(writer, "Project not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("Error: %v", err)
+		logger.Instance.WithError(err).Error("Error getting project stats")
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -60,7 +60,7 @@ func (handler *ProjectHandler) DeleteProjectByID(writer http.ResponseWriter, req
 
 	go func(projectID string) {
 		if err := handler.service.DeleteProject(projectID); err != nil {
-			log.Println("Error deleting project in background:", err)
+			logger.Instance.WithError(err).Error("Error deleting project in background")
 		}
 	}(id)
 }

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"log"
 	"net/http"
+	"server/internals/logger"
 )
 
 // GET /api/v1/connector/projects
@@ -11,7 +11,7 @@ func (handler *ProjectHandler) GetAllProjectsFromRepository(writer http.Response
 
 	body, err := handler.service.GetAllProjectsFromRepository(rawQuery)
 	if err != nil {
-		log.Printf("Error fetching projects from repository: %v", err)
+		logger.Instance.WithError(err).Error("Error fetching projects from repository")
 		http.Error(writer, "Failed to fetch projects from external source", http.StatusInternalServerError)
 		return
 	}
@@ -27,7 +27,7 @@ func (handler *ProjectHandler) UpdateProject(writer http.ResponseWriter, request
 
 	body, err := handler.service.UpdateProject(rawQuery)
 	if err != nil {
-		log.Printf("Error updating project in repository: %v", err)
+		logger.Instance.WithError(err).Error("Error updating project in repository")
 		http.Error(writer, "Failed to update external project", http.StatusInternalServerError)
 		return
 	}

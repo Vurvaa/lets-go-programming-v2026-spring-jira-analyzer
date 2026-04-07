@@ -3,23 +3,25 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"server/internals/logger"
 	"server/internals/model"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (svc *ProjectService) GetGraphByProjectKey(taskNum, projectKey string) ([]byte, error) {
 	num, err := strconv.Atoi(taskNum)
 	if err != nil {
-		log.Printf("Error while converting taskNum to int: %v", err)
+		logger.Instance.WithError(err).Error("Error while converting taskNum to int")
 		return nil, err
 	}
 
 	projectID, err := svc.projectRepository.GetProjectIDByKey(projectKey)
 	if err != nil {
-		log.Printf("Error while getting projectID by key: %v", err)
+		logger.Instance.WithError(err).Error("Error while getting projectID by key")
 		return nil, err
 	}
 
@@ -31,7 +33,7 @@ func (svc *ProjectService) GetGraphByProjectKey(taskNum, projectKey string) ([]b
 	case 5:
 		body, err = svc.projectRepository.GetTaskPriorityCount(projectID)
 	default:
-		log.Printf("Unknown task number: %v", num)
+		logger.Instance.WithField("num", num).Info("Unknown task number")
 		err = fmt.Errorf("unknown task number: %v", num)
 	}
 
@@ -59,13 +61,13 @@ func (svc *ProjectService) HasAnyAnalyticsByProjectKey(projectKey string) (bool,
 func (svc *ProjectService) MakeGraphByProjectKey(taskNum, projectKey string) error {
 	num, err := strconv.Atoi(taskNum)
 	if err != nil {
-		log.Printf("Error while converting taskNum to int: %v", err)
+		logger.Instance.WithError(err).Error("Error while converting taskNum to int")
 		return err
 	}
 
 	projectID, err := svc.projectRepository.GetProjectIDByKey(projectKey)
 	if err != nil {
-		log.Printf("Error while getting projectID by key: %v", err)
+		logger.Instance.WithError(err).Error("Error while getting projectID by key")
 		return err
 	}
 
@@ -75,7 +77,7 @@ func (svc *ProjectService) MakeGraphByProjectKey(taskNum, projectKey string) err
 	case 5:
 		err = svc.buildTaskPriorityCount(projectID)
 	default:
-		log.Printf("Unknown task number: %v", num)
+		logger.Instance.WithField("num", num).Info("Unknown task number")
 		err = fmt.Errorf("unknown task number: %v", num)
 	}
 
@@ -84,12 +86,13 @@ func (svc *ProjectService) MakeGraphByProjectKey(taskNum, projectKey string) err
 
 func (svc *ProjectService) CompareProjects(taskNum string, projectKey []string) ([]byte, error) {
 	if len(projectKey) < 2 || len(projectKey) > 3 {
+		logger.Instance.Error("count of projects for compare must be from 2 to 3")
 		return nil, fmt.Errorf("count of projects for compare must be from 2 to 3")
 	}
 
 	num, err := strconv.Atoi(taskNum)
 	if err != nil {
-		log.Printf("Error while converting taskNum to int: %v", err)
+		logger.Instance.WithError(err).Error("Error while converting taskNum to int")
 		return nil, err
 	}
 
@@ -99,7 +102,7 @@ func (svc *ProjectService) CompareProjects(taskNum string, projectKey []string) 
 	case 5:
 		return svc.compareTaskPriorityCount(taskNum, projectKey)
 	default:
-		log.Printf("Unknown task number: %v", num)
+		logger.Instance.WithField("num", num).Info("Unknown task number")
 		return nil, fmt.Errorf("unknown task number: %v", num)
 	}
 }
@@ -111,9 +114,14 @@ func (svc *ProjectService) compareOpenTaskTime(taskNum string, projectKeys []str
 		projectKey := strings.TrimSpace(key)
 		graph, err := svc.getGraph(taskNum, projectKey)
 		if err != nil {
+			logger.Instance.WithFields(logrus.Fields{
+				"projectKey": projectKey,
+				"error":      err,
+			}).Error("get open task time graph for project")
 			return nil, fmt.Errorf("get open task time graph for project %s: %w", projectKey, err)
 		}
 		if graph == nil {
+			logger.Instance.WithField("projectKey", projectKey).Info("open task time graph for project was not found")
 			return nil, fmt.Errorf("open task time graph for project %s was not found", projectKey)
 		}
 
@@ -139,6 +147,7 @@ func (svc *ProjectService) compareOpenTaskTime(taskNum string, projectKeys []str
 
 	response, err := json.Marshal(result)
 	if err != nil {
+		logger.Instance.WithError(err).Error("marshal compare open task time response")
 		return nil, fmt.Errorf("marshal compare open task time response: %w", err)
 	}
 
@@ -154,9 +163,14 @@ func (svc *ProjectService) compareTaskPriorityCount(taskNum string, projectKeys 
 		key = strings.TrimSpace(key)
 		graph, err := svc.getGraph(taskNum, key)
 		if err != nil {
+			logger.Instance.WithFields(logrus.Fields{
+				"projectKey": key,
+				"error":      err,
+			}).Error("get task priority graph for project")
 			return nil, fmt.Errorf("get task priority graph for project %s: %w", key, err)
 		}
 		if graph == nil {
+			logger.Instance.WithField("projectKey", key).Info("task priority graph for project was not found")
 			return nil, fmt.Errorf("task priority graph for project %s was not found", key)
 		}
 
@@ -187,6 +201,7 @@ func (svc *ProjectService) compareTaskPriorityCount(taskNum string, projectKeys 
 
 	response, err := json.Marshal(result)
 	if err != nil {
+		logger.Instance.WithError(err).Error("marshal compare task priority count response")
 		return nil, fmt.Errorf("marshal compare task priority count response: %w", err)
 	}
 
@@ -196,6 +211,10 @@ func (svc *ProjectService) compareTaskPriorityCount(taskNum string, projectKeys 
 func (svc *ProjectService) buildOpenTaskTime(projectID string) error {
 	rows, err := svc.projectRepository.GetIssueOpenTimesByProjectID(projectID)
 	if err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("get issue open task times for project")
 		return fmt.Errorf("get issue open times for project %s: %w", projectID, err)
 	}
 
@@ -237,10 +256,18 @@ func (svc *ProjectService) buildOpenTaskTime(projectID string) error {
 
 	data, err := json.Marshal(graph)
 	if err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("marshal open task time graph for project")
 		return fmt.Errorf("marshal open task time graph for project %s: %w", projectID, err)
 	}
 
 	if err := svc.projectRepository.SaveOpenTaskTime(projectID, data); err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("save open task time for project")
 		return fmt.Errorf("save open task time graph for project %s: %w", projectID, err)
 	}
 
@@ -250,6 +277,10 @@ func (svc *ProjectService) buildOpenTaskTime(projectID string) error {
 func (svc *ProjectService) buildTaskPriorityCount(projectID string) error {
 	rows, err := svc.projectRepository.GetIssuePrioritiesByProjectID(projectID)
 	if err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("get project priorities for project")
 		return fmt.Errorf("get issue priorities for project %s: %w", projectID, err)
 	}
 
@@ -272,10 +303,18 @@ func (svc *ProjectService) buildTaskPriorityCount(projectID string) error {
 
 	data, err := json.Marshal(graph)
 	if err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("marshal task priority count for project")
 		return fmt.Errorf("marshal task priority count for project %s: %w", projectID, err)
 	}
 
 	if err := svc.projectRepository.SaveTaskPriorityCount(projectID, data); err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"projectID": projectID,
+			"error":     err,
+		}).Error("save task priority count for project")
 		return fmt.Errorf("save task priority count for project %s: %w", projectID, err)
 	}
 
@@ -293,6 +332,10 @@ func (svc *ProjectService) getGraph(taskNum, projectKey string) (*model.GraphDat
 
 	var graph model.GraphData
 	if err := json.Unmarshal(data, &graph); err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"project_key": projectKey,
+			"error":       err,
+		}).Error("failed to unmarshal graph data for project")
 		return nil, fmt.Errorf("unmarshal graph for project %s: %w", projectKey, err)
 	}
 

@@ -3,8 +3,10 @@ package postgres
 import (
 	"database/sql"
 	"errors"
-	"log"
+	"server/internals/logger"
 	"server/internals/model"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (repos *DBRepository) GetAllProjects() ([]model.Project, error) {
@@ -20,13 +22,13 @@ func (repos *DBRepository) GetAllProjects() ([]model.Project, error) {
 		ORDER BY projects.id`,
 	)
 	if err != nil {
-		log.Printf("Error with querying all projects: %v", err)
+		logger.Instance.WithError(err).Error("Error with querying all projects")
 		return projects, err
 	}
 	defer func(rows *sql.Rows) {
 		err := rows.Close()
 		if err != nil {
-			log.Printf("Unable to Close() on rows.")
+			logger.Instance.Warn("Unable to Close() on rows")
 		}
 	}(rows)
 
@@ -34,14 +36,14 @@ func (repos *DBRepository) GetAllProjects() ([]model.Project, error) {
 		var project model.Project
 		err := rows.Scan(&project.ProjectID, &project.ProjectKey, &project.Name, &project.ProjectURL)
 		if err != nil {
-			log.Printf("Error on handling query to the database: %s", err.Error())
+			logger.Instance.WithError(err).Error("Error on handling query to the database")
 			return projects, err
 		}
 		projects = append(projects, project)
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("Rows iteration error: %v", err)
+		logger.Instance.WithError(err).Error("Rows iteration error")
 		return projects, err
 	}
 
@@ -60,7 +62,10 @@ func (repos *DBRepository) ProjectExistsByID(projectID string) (bool, error) {
 		projectID,
 	).Scan(&exists)
 	if err != nil {
-		log.Printf("Error while checking project existence by id %s: %v", projectID, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": projectID,
+			"error":      err,
+		}).Error("Error while checking project existence")
 		return false, err
 	}
 
@@ -118,7 +123,10 @@ func (repos *DBRepository) GetProjectStatsByID(projectID string) (model.ProjectS
 		&stats.ProgressIssuesCount,
 	)
 	if err != nil {
-		log.Printf("Error while getting project stats for project id %s: %v", projectID, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": projectID,
+			"error":      err,
+		}).Error("Error while getting project stats")
 		return stats, err
 	}
 
@@ -141,7 +149,10 @@ func (repos *DBRepository) GetReopenedIssuesCount(projectID string) (int, error)
 
 	err := row.Scan(&count)
 	if err != nil {
-		log.Printf("Error while getting reopened issues count for project id %s: %v", projectID, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": projectID,
+			"error":      err,
+		}).Error("Error while getting reopened issues count for project")
 		return 0, err
 	}
 
@@ -165,7 +176,10 @@ func (repos *DBRepository) GetAverageIssuesCount(projectID string) (float64, err
 
 	err := row.Scan(&avg)
 	if err != nil {
-		log.Printf("Error while getting average issues count for project id %s: %v", projectID, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": projectID,
+			"error":      err,
+		}).Error("Error while getting average issues count for project")
 		return 0, err
 	}
 
@@ -187,7 +201,10 @@ func (repos *DBRepository) GetAverageTime(projectID string) (float64, error) {
 
 	err := row.Scan(&avg)
 	if err != nil {
-		log.Printf("Error while getting average time for project id %s: %v", projectID, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": projectID,
+			"error":      err,
+		}).Error("Error while getting average time for project")
 		return 0, err
 	}
 
@@ -208,11 +225,16 @@ func (repos *DBRepository) GetProjectIDByKey(projectKey string) (string, error) 
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("project with key %s was not found", projectKey)
+			logger.Instance.WithFields(logrus.Fields{
+				"project_key": projectKey,
+			}).Info("Project key was not found")
 			return "", sql.ErrNoRows
 		}
 
-		log.Printf("error while getting project id by key %s: %v", projectKey, err)
+		logger.Instance.WithFields(logrus.Fields{
+			"project_key": projectKey,
+			"error":       err,
+		}).Error("Error while getting project id by key")
 		return "", err
 	}
 
@@ -222,5 +244,12 @@ func (repos *DBRepository) GetProjectIDByKey(projectKey string) (string, error) 
 func (repos *DBRepository) DeleteProjectByID(id string) error {
 	query := `DELETE FROM projects WHERE id = $1`
 	_, err := repos.db.Exec(query, id)
+	if err != nil {
+		logger.Instance.WithFields(logrus.Fields{
+			"project_id": id,
+			"error":      err,
+		}).Error("Failed to delete project from DB")
+		return err
+	}
 	return err
 }
