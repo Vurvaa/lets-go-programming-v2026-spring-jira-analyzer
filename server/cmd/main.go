@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"server/internals/logger"
 	"server/internals/repository/postgres"
 	"time"
 
@@ -14,11 +14,12 @@ import (
 
 func main() {
 	const configName = "configs/config.yaml"
+	logger.InitLogger()
 
 	db := postgres.NewDB(configName)
 	defer func() {
 		if err := db.Close(); err != nil {
-			log.Printf("failed to close db: %v", err)
+			logger.Instance.Errorf("failed to close db: %v", err)
 		}
 	}()
 
@@ -28,7 +29,7 @@ func main() {
 	projectHandler := handler.NewProjectHandler(projectService)
 	projectRouter := router.NewRouter(projectHandler)
 
-	log.Println("Starting API server on :8000")
+	logger.Instance.Info("Starting API server on :8000")
 	server := &http.Server{
 		Addr:         ":8000",
 		Handler:      projectRouter.Handler(),
@@ -37,6 +38,6 @@ func main() {
 	}
 
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("failed to start API server: %v", err)
+		logger.Instance.Fatal("failed to start API server: %v", err)
 	}
 }
