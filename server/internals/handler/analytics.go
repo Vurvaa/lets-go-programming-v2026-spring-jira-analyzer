@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
+	"server/internals/logger"
 	"server/internals/model"
 	"strings"
 )
@@ -21,7 +21,7 @@ func (handler *ProjectHandler) GetGraphByKey(writer http.ResponseWriter, request
 			http.Error(writer, "graph not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("Error: %v", err)
+		logger.Instance.WithError(err).Error("Error getting graph by key")
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 
 		return
@@ -31,7 +31,7 @@ func (handler *ProjectHandler) GetGraphByKey(writer http.ResponseWriter, request
 	writer.WriteHeader(http.StatusOK)
 	_, err = writer.Write(projectData)
 	if err != nil {
-		log.Printf("error while writing response: %v", err)
+		logger.Instance.WithError(err).Error("error while writing response")
 	}
 }
 
@@ -52,7 +52,7 @@ func (handler *ProjectHandler) CompareProjects(writer http.ResponseWriter, reque
 			http.Error(writer, "graph not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("Error: %v", err)
+		logger.Instance.WithError(err).Error("Error comparing projects")
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 
 		return
@@ -62,7 +62,7 @@ func (handler *ProjectHandler) CompareProjects(writer http.ResponseWriter, reque
 	writer.WriteHeader(http.StatusOK)
 	_, err = writer.Write(projects)
 	if err != nil {
-		log.Printf("error while writing response: %v", err)
+		logger.Instance.WithError(err).Error("error while writing response")
 	}
 }
 
@@ -76,7 +76,7 @@ func (handler *ProjectHandler) HasAnyAnalytics(writer http.ResponseWriter, reque
 			http.Error(writer, "graph not found", http.StatusNotFound)
 			return
 		}
-		log.Printf("Error: %v", err)
+		logger.Instance.WithError(err).Error("Error getting analytics by project key")
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 
 		return
@@ -95,7 +95,7 @@ func (handler *ProjectHandler) MakeGraph(writer http.ResponseWriter, request *ht
 
 	err := handler.service.MakeGraphByProjectKey(num, key)
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Instance.WithError(err).Error("Error making graph by project key")
 		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
 
 		return
@@ -111,7 +111,7 @@ func (handler *ProjectHandler) DeleteGraphByProjectKey(writer http.ResponseWrite
 
 	go func(projectKey string) {
 		if err := handler.service.DeleteAllGraphByProjectKey(projectKey); err != nil {
-			log.Println("Error deleting project in background:", err)
+			logger.Instance.WithError(err).Error("Error deleting graph by project key")
 		}
 	}(key)
 }
