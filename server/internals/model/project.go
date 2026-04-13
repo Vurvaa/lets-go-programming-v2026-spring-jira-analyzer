@@ -8,15 +8,15 @@ type Project struct {
 }
 
 type ProjectStats struct {
-	ProjectID           string
-	Key                 string
-	Name                string
-	AllIssuesCount      int
-	OpenIssuesCount     int
-	CloseIssuesCount    int
-	ResolvedIssuesCount int
-	ReopenedIssuesCount int
-	ProgressIssuesCount int
-	AverageTime         float64
-	AverageIssuesCount  float64
+	ProjectID           string  `json:"projectID"`
+	Key                 string  `json:"key"`
+	Name                string  `json:"name"`
+	AllIssuesCount      int     `json:"allIssuesCount"`
+	OpenIssuesCount     int     `json:"openIssuesCount"`
+	CloseIssuesCount    int     `json:"closeIssuesCount"`
+	ResolvedIssuesCount int     `json:"resolvedIssuesCount"`
+	ReopenedIssuesCount int     `json:"reopenedIssuesCount"`
+	ProgressIssuesCount int     `json:"progressIssuesCount"`
+	AverageTime         float64 `json:"averageTime"`
+	AverageIssuesCount  float64 `json:"averageIssuesCount"`
 }

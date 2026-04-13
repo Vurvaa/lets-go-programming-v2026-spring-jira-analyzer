@@ -36,11 +36,6 @@ func (server *Server) routes() {
 }
 
 func (server *Server) updateProject(writer http.ResponseWriter, request *http.Request) {
-	if request.Method != "POST" {
-		http.Error(writer, "incorrect http method for /updateProject", http.StatusBadRequest)
-		return
-	}
-
 	projectKey := request.URL.Query().Get("project")
 	if projectKey == "" {
 		http.Error(writer, "project name was not passed to /updateProject", http.StatusBadRequest)
@@ -77,18 +72,13 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 }
 
 func (server *Server) projects(writer http.ResponseWriter, request *http.Request) {
-	if request.Method != "GET" {
-		http.Error(writer, "incorrect http method for /projects", http.StatusBadRequest)
-
-		return
-	}
-
-	limit, page, search := handlers.ParseProjectParameters(request)
+	limit := handlers.ParseLimit(request)
+	page := handlers.ParsePage(request)
+	search := handlers.ParseSearch(request)
 
 	projects, err := handlers.HandleProjects(server.repository, search)
 	if err != nil {
 		http.Error(writer, fmt.Sprintf("error while downloading list of projects: %v", err), http.StatusBadRequest)
-
 		return
 	}
 

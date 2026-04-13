@@ -16,5 +16,5 @@ type ConnectorProject struct {
 
 type ProjectResponse struct {
 	Projects []ConnectorProject `json:"data"`
-	PageInfo PageInfo           `json:"PageInfo"`
+	PageInfo PageInfo           `json:"pageInfo"`
 }
