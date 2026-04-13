@@ -16,7 +16,7 @@ func NewRouter(projectHandler *handler.ProjectHandler) *Router {
 
 func (router *Router) Handler() http.Handler {
 	router.routes()
-	return LoggingMiddleware(router.mux)
+	return LoggingMiddleware(CORSMiddleware(router.mux))
 }
 
 func (router *Router) routes() {

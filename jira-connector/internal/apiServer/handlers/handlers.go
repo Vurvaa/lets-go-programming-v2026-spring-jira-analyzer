@@ -1,27 +1,51 @@
 package handlers
 
 import (
-	"jira-connector/internal/apiServer/models"
-	"jira-connector/internal/connector"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"jira-connector/internal/apiServer/models"
+	"jira-connector/internal/connector"
+)
+
+const (
+	maxLimit     = 100
+	defaultLimit = 20
+	defaultPage  = 1
 )
 
 func GetProjectResponse(page, limit int, projects []models.Project) models.ProjectResponse {
 	projectsCount := len(projects)
+
+	if limit <= 0 {
+		limit = defaultLimit
+	}
+
+	if page <= 0 {
+		page = defaultPage
+	}
+
+	pageCount := 0
+	if projectsCount > 0 {
+		pageCount = (projectsCount + limit - 1) / limit
+	}
+
 	startIndex := (page - 1) * limit
+	if startIndex > projectsCount {
+		startIndex = projectsCount
+	}
+
 	endIndex := startIndex + limit
-	if endIndex >= len(projects) {
-		endIndex = len(projects)
+	if endIndex > projectsCount {
+		endIndex = projectsCount
 	}
 
 	return models.ProjectResponse{
 		Projects: projects[startIndex:endIndex],
 		PageInfo: models.PageInfo{
 			CurrentPage:   page,
-			PageCount:     int(math.Ceil(float64(projectsCount) / float64(limit))),
+			PageCount:     pageCount,
 			ProjectsCount: projectsCount,
 		},
 	}
@@ -33,7 +57,7 @@ func HandleProjects(url, search string) ([]models.Project, error) {
 		return nil, err
 	}
 
-	var responseProjects []models.Project
+	responseProjects := make([]models.Project, 0)
 
 	for _, project := range projects {
 		isCorrectName := strings.Contains(strings.ToLower(project.ProjectName), strings.ToLower(search))
@@ -52,25 +76,38 @@ func HandleProjects(url, search string) ([]models.Project, error) {
 	return responseProjects, nil
 }
 
-func ParseProjectParameters(request *http.Request) (int, int, string) {
-	limit := 20
-	page := 1
-	search := ""
-
+func ParseLimit(request *http.Request) int {
 	limitPrm := request.URL.Query().Get("limit")
-	if len(limitPrm) != 0 {
-		limit, _ = strconv.Atoi(limitPrm)
+	if limitPrm == "" {
+		return defaultLimit
 	}
 
+	limit, err := strconv.Atoi(limitPrm)
+	if err != nil || limit <= 0 {
+		return defaultLimit
+	}
+
+	if limit > maxLimit {
+		return maxLimit
+	}
+
+	return limit
+}
+
+func ParsePage(request *http.Request) int {
 	pagePrm := request.URL.Query().Get("page")
-	if len(pagePrm) != 0 {
-		page, _ = strconv.Atoi(pagePrm)
+	if pagePrm == "" {
+		return defaultPage
 	}
 
-	searchPrm := request.URL.Query().Get("search")
-	if len(searchPrm) != 0 {
-		search = searchPrm
+	page, err := strconv.Atoi(pagePrm)
+	if err != nil || page <= 0 {
+		return defaultPage
 	}
 
-	return limit, page, search
+	return page
+}
+
+func ParseSearch(request *http.Request) string {
+	return request.URL.Query().Get("search")
 }
