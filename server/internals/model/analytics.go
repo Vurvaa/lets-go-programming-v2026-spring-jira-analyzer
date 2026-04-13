@@ -24,5 +24,5 @@ type CompareGraphData struct {
 	Count map[string][]int `json:"count"`
 }
 type IsAnalyzedResponse struct {
-	IsAnalyzed bool `json:"isAnalyzed"`
+	IsAnalyzed bool `json:"data"`
 }
