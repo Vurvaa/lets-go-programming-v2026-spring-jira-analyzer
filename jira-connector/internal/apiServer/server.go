@@ -61,7 +61,9 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 	}
 
 	writer.WriteHeader(http.StatusOK)
-	writer.Write([]byte("Project update started"))
+	if _, err := writer.Write([]byte("Project update started")); err != nil {
+		return
+	}
 
 	go func() {
 		ctx := context.Background()
@@ -92,7 +94,7 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 
 	_, err = writer.Write(response)
 	if err != nil {
-		log.Println(fmt.Sprintf("error while writing response: %v", err))
+		log.Printf("error while writing response: %v", err)
 	}
 }
 
