@@ -17,7 +17,6 @@ func (svc *ProjectService) compareOpenTaskTime(taskNum string, projectKeys []str
 	}
 
 	graphs := make([]model.GraphData, 0, len(projectKeys))
-	normalizedKeys := make([]string, 0, len(projectKeys))
 
 	for _, key := range projectKeys {
 		projectKey := strings.TrimSpace(key)
@@ -41,7 +40,6 @@ func (svc *ProjectService) compareOpenTaskTime(taskNum string, projectKeys []str
 		}
 
 		graphs = append(graphs, *graph)
-		normalizedKeys = append(normalizedKeys, projectKey)
 	}
 
 	categories := buildOpenTaskTimeCategories()

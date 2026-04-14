@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"server/internals/logger"
 	"server/internals/model"
@@ -82,10 +83,12 @@ func (handler *ProjectHandler) HasAnyAnalytics(writer http.ResponseWriter, reque
 		return
 	}
 
-	var body model.IsAnalyzedResponse = model.IsAnalyzedResponse{IsAnalyzed: contains}
+	body := model.IsAnalyzedResponse{IsAnalyzed: contains}
 
 	writer.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(writer).Encode(body)
+	if err := json.NewEncoder(writer).Encode(body); err != nil {
+		log.Printf("error encoding response: %v", err)
+	}
 }
 
 // POST /api/v1/graph/make/{taskNumber}
@@ -108,13 +111,18 @@ func (handler *ProjectHandler) DeleteGraphByProjectKey(writer http.ResponseWrite
 	if key == "" {
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusBadRequest)
-		writer.Write([]byte(`{"error":"project query parameter is required"}`))
+		if _, err := writer.Write([]byte(`{"error":"project query parameter is required"}`)); err != nil {
+			log.Printf("error writing response: %v", err)
+		}
+
 		return
 	}
 
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusAccepted)
-	writer.Write([]byte(`{"data":"Deletion started"}`))
+	if _, err := writer.Write([]byte(`{"data":"Deletion started"}`)); err != nil {
+		log.Printf("error writing response: %v", err)
+	}
 
 	go func(projectKey string) {
 		if err := handler.service.DeleteAllGraphByProjectKey(projectKey); err != nil {
