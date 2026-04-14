@@ -82,10 +82,10 @@ func (handler *ProjectHandler) HasAnyAnalytics(writer http.ResponseWriter, reque
 		return
 	}
 
-	var body model.IsAnalyzedResponse = model.IsAnalyzedResponse{IsAnalyzed: contains}
+	body := model.IsAnalyzedResponse{IsAnalyzed: contains}
 
 	writer.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(writer).Encode(body)
+	_ = json.NewEncoder(writer).Encode(body)
 }
 
 // POST /api/v1/graph/make/{taskNumber}
@@ -107,7 +107,9 @@ func (handler *ProjectHandler) DeleteGraphByProjectKey(writer http.ResponseWrite
 	key := request.URL.Query().Get("project")
 
 	writer.WriteHeader(http.StatusAccepted)
-	writer.Write([]byte("Deletion started"))
+	if _, err := writer.Write([]byte("Deletion started")); err != nil {
+		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
+	}
 
 	go func(projectKey string) {
 		if err := handler.service.DeleteAllGraphByProjectKey(projectKey); err != nil {

@@ -79,13 +79,13 @@ func getBody(ctx context.Context, url string, expansion string) ([]byte, error) 
 			return nil, err
 		}
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if err != nil {
 			return nil, err
 		}
 		if resp.StatusCode == 429 {
 			if delay > cp.MaxTimeSleep {
-				return nil, fmt.Errorf("Response failed with rate limit and \nbody: %s\n", body)
+				return nil, fmt.Errorf("response failed with rate limit and \nbody: %s", body)
 			}
 			jiter := min(cp.MaxTimeSleep-delay, rand.Int64N(delay))
 			fmt.Println("sleep for a ", delay+jiter)
@@ -96,7 +96,7 @@ func getBody(ctx context.Context, url string, expansion string) ([]byte, error) 
 			continue
 		}
 		if resp.StatusCode > 299 {
-			return nil, fmt.Errorf("Response failed with status code: %d and\nbody: %s\n", resp.StatusCode, body)
+			return nil, fmt.Errorf("response failed with status code: %d and\nbody: %s", resp.StatusCode, body)
 		}
 		return body, nil
 	}
@@ -111,7 +111,7 @@ func GetProject(url, key string) (*Project, error) {
 
 	var project Project
 	if typeErr := json.Unmarshal(body, &project); typeErr != nil {
-		return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
+		return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 	}
 
 	return &project, nil
@@ -125,7 +125,7 @@ func GetProjects(url string) ([]Project, error) {
 	}
 	var projects []Project
 	if typeErr := json.Unmarshal(body, &projects); typeErr != nil {
-		return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
+		return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 	}
 	return projects, nil
 }
@@ -146,7 +146,7 @@ func GetIssues(url string, project *Project) error {
 		Issues []json.RawMessage `json:"issues"`
 	}{}
 	if typeErr := json.Unmarshal(body, &resp); typeErr != nil {
-		return fmt.Errorf("Type mismatch in API response: %w", typeErr)
+		return fmt.Errorf("type mismatch in API response: %w", typeErr)
 	}
 	if resp.Total == 0 {
 		return nil
@@ -175,7 +175,7 @@ func GetIssues(url string, project *Project) error {
 					Issues []json.RawMessage `json:"issues"`
 				}{}
 				if typeErr := json.Unmarshal(body, &resp); typeErr != nil {
-					return fmt.Errorf("Type mismatch in API response: %w", typeErr)
+					return fmt.Errorf("type mismatch in API response: %w", typeErr)
 				}
 				mu.Lock()
 				project.Issues = append(project.Issues, resp.Issues...)
@@ -189,7 +189,7 @@ func GetIssues(url string, project *Project) error {
 	}
 	close(jobs)
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("Error fetching issues from project: %s %w", project.ProjectName, err)
+		return fmt.Errorf("error fetching issues from project: %s %w", project.ProjectName, err)
 	}
 	fmt.Println(project.ProjectName+" was saved for time: ", time.Since(start))
 	return nil
