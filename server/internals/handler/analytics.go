@@ -105,9 +105,16 @@ func (handler *ProjectHandler) MakeGraph(writer http.ResponseWriter, request *ht
 // DELETE /api/v1/graph/delete
 func (handler *ProjectHandler) DeleteGraphByProjectKey(writer http.ResponseWriter, request *http.Request) {
 	key := request.URL.Query().Get("project")
+	if key == "" {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusBadRequest)
+		writer.Write([]byte(`{"error":"project query parameter is required"}`))
+		return
+	}
 
+	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusAccepted)
-	writer.Write([]byte("Deletion started"))
+	writer.Write([]byte(`{"data":"Deletion started"}`))
 
 	go func(projectKey string) {
 		if err := handler.service.DeleteAllGraphByProjectKey(projectKey); err != nil {
