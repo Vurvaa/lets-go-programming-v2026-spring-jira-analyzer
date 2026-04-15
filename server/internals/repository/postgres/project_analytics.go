@@ -168,7 +168,12 @@ func (repos *DBRepository) GetIssueOpenTimesByProjectID(projectID string) ([]mod
 		log.Printf("error while getting issue open times for project %s: %v", projectID, err)
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("error while closing rows: %v", err)
+		}
+	}()
 
 	result := make([]model.IssueOpenTimeRow, 0)
 
@@ -206,7 +211,12 @@ func (repos *DBRepository) GetIssuePrioritiesByProjectID(projectID string) ([]mo
 		log.Printf("error while getting issue priorities for project %s: %v", projectID, err)
 		return nil, err
 	}
-	defer rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("error while closing rows: %v", err)
+		}
+	}()
 
 	result := make([]model.IssuePriorityRow, 0)
 

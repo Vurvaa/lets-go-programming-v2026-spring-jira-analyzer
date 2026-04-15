@@ -164,12 +164,16 @@ func (repos *DBRepository) GetAverageIssuesCount(projectID string) (float64, err
 
 	row := repos.db.QueryRow(
 		`
-		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (closed_time - created_time))), 0)
-		FROM issues
-		WHERE project_id = $1
-		  AND created_time IS NOT NULL
-		  AND closed_time IS NOT NULL
-		  AND closed_time >= created_time
+		WITH daily_counts AS (
+			SELECT DATE(created_time) AS day, COUNT(*) AS cnt
+			FROM issues
+			WHERE project_id = $1
+			  AND created_time IS NOT NULL
+			  AND created_time >= NOW() - INTERVAL '7 days'
+			GROUP BY DATE(created_time)
+		)
+		SELECT COALESCE(AVG(cnt), 0)
+		FROM daily_counts
 		`,
 		projectID,
 	)
@@ -191,10 +195,11 @@ func (repos *DBRepository) GetAverageTime(projectID string) (float64, error) {
 
 	row := repos.db.QueryRow(
 		`
-		SELECT COALESCE(AVG(time_spent), 0)
+		SELECT COALESCE(AVG(time_spent) / 3600.0, 0)
 		FROM issues
 		WHERE project_id = $1
 		  AND time_spent IS NOT NULL
+		  AND time_spent >= 0
 		`,
 		projectID,
 	)

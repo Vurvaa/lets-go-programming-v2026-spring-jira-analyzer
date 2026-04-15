@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"server/internals/model"
 	connectorRepo "server/internals/repository/connector"
 	postgresRepo "server/internals/repository/postgres"
@@ -83,7 +84,7 @@ func (svc *ProjectService) GetProjectStatsByID(projectID string) (model.ProjectS
 	if err != nil {
 		return stats, err
 	}
-	stats.AverageTime = averageTime
+	stats.AverageTime = math.Round(averageTime*100) / 100
 
 	return stats, nil
 }

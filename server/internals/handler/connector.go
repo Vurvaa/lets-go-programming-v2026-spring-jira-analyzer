@@ -18,7 +18,10 @@ func (handler *ProjectHandler) GetAllProjectsFromRepository(writer http.Response
 
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
-	writer.Write(body)
+
+	if _, err = writer.Write(body); err != nil {
+		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // POST /api/v1/connector/updateProject
@@ -34,5 +37,7 @@ func (handler *ProjectHandler) UpdateProject(writer http.ResponseWriter, request
 
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
-	writer.Write(body)
+	if _, err = writer.Write(body); err != nil {
+		http.Error(writer, "Internal Server Error", http.StatusInternalServerError)
+	}
 }

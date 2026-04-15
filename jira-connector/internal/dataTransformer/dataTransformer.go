@@ -62,7 +62,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 		} `json:"changelog"`
 	}
 	if typeErr := json.Unmarshal(jsonData, &data); typeErr != nil {
-		return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
+		return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 	}
 	var changes []StatusChanges
 	for _, h := range data.Changelog.Histories {
@@ -85,7 +85,7 @@ func ParseIssuesOfProject(project *connector.Project) ([]Issue, error) {
 	for _, rawIssue := range project.Issues {
 		var issue Issue
 		if typeErr := json.Unmarshal(rawIssue, &issue); typeErr != nil {
-			return nil, fmt.Errorf("Type mismatch in API response: %w", typeErr)
+			return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 		}
 		changes, err := parseStatusChanges(rawIssue)
 		if err != nil {
