@@ -56,7 +56,7 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 
 	parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
 	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("error while parsing issues for project %q: %v", projectKey, err), http.StatusBadRequest)
 		return
 	}
 
