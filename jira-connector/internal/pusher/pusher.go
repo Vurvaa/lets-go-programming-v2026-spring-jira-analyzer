@@ -26,7 +26,7 @@ func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issu
 		return fmt.Errorf("error of saving project: %w", err)
 	}
 
-	logger.Instance.WithField("issues_count", len(issues)).Info("Starting save %d issues")
+	logger.Instance.WithField("issues_count", len(issues)).Info("Starting to save issues")
 	for i, issue := range issues {
 		if i%100 == 0 {
 			logger.Instance.WithFields(logrus.Fields{
