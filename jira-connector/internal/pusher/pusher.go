@@ -6,47 +6,61 @@ import (
 	"fmt"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
-	"log"
+	"jira-connector/internal/logger"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issue, project *connector.Project) error {
-	log.Printf("Saving %d projects", len(issues))
+	logger.Instance.WithFields(logrus.Fields{
+		"project_key": project.ProjectKey,
+		"issue_count": len(issues),
+	}).Info("Starting to save project data")
 
 	if err := s.upsertProject(
 		ctx, project.ProjectId,
 		project.ProjectKey,
 		project.ProjectName,
 		project.ProjectSelf); err != nil {
+		logger.Instance.WithError(err).WithField("project_key", project.ProjectKey).Error("Failed to save project")
 		return fmt.Errorf("error of saving project: %w", err)
 	}
 
-	log.Printf("Starting save %d issues", len(issues))
+	logger.Instance.WithField("issues_count", len(issues)).Info("Starting save %d issues")
 	for i, issue := range issues {
 		if i%100 == 0 {
-			log.Printf("Processing issues: %d/%d...", i, len(issues))
+			logger.Instance.WithFields(logrus.Fields{
+				"project_key": project.ProjectKey,
+				"processed":   i,
+				"total":       len(issues),
+			}).Info("Processing issues progress...")
 		}
 
 		authorName := issue.Fields.Creator.AuthorName
 		if err := s.upsertAuthor(ctx, authorName); err != nil {
+			logger.Instance.WithError(err).WithField("author", authorName).Error("Failed to save author")
 			return fmt.Errorf("error of saving author: %w", err)
 		}
 		assigneeName := issue.Fields.Assignee.AssigneeName
 		if err := s.upsertAuthor(ctx, assigneeName); err != nil {
+			logger.Instance.WithError(err).WithField("assignee", assigneeName).Error("Failed to save assignee")
 			return fmt.Errorf("error of saving assignee: %w", err)
 		}
 
 		if err := s.upsertIssue(ctx, issue); err != nil {
+			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Error("Failed to save issue")
 			return fmt.Errorf("error of saving issue: %w", err)
 		}
 
 		changes := issue.StatusChanges
 		issueID := issue.IssueID
 		if err := s.upsertStatusChanges(ctx, issueID, changes); err != nil {
+			logger.Instance.WithError(err).WithField("issue_id", issueID).Error("Failed to save status changes")
 			return fmt.Errorf("error of saving status changes: %w", err)
 		}
 	}
 
-	log.Println("Saving completed successfully")
+	logger.Instance.Info("Saving completed successfully")
 	return nil
 }
 
