@@ -5,20 +5,21 @@ import (
 	"jira-connector/internal/apiServer"
 	"jira-connector/internal/configReader"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/logger"
 	"jira-connector/internal/pusher"
-	"log"
 	"time"
 )
 
 func main() {
 	const configName = "config.yaml"
 
+	logger.InitLogger()
 	connector.InitParameters(configName)
 
 	reader := configReader.NewConfigReader(configName)
 	cfg, err := reader.ReadConfigDB()
 	if err != nil {
-		log.Fatal(err)
+		logger.Instance.WithError(err).Fatal("Failed to read DB config")
 		return
 	}
 
@@ -34,18 +35,19 @@ func main() {
 	for i := 0; i < 15; i++ {
 		store, err = pusher.NewStorage(connectionStr)
 		if err == nil {
-			log.Println("Successfully connected to database")
+			logger.Instance.Info("Successfully connected to database")
 			break
 		}
-		log.Printf("Database not ready (attempt %d/15), waiting...", i+1)
+		logger.Instance.WithField("attempt", i+1).Warn("Database not ready, waiting...")
 		time.Sleep(2 * time.Second)
 	}
 
 	srvConfig, err := reader.ReadServerConfig()
 	if err != nil {
-		log.Fatal(err)
+		logger.Instance.WithError(err).Fatal("Failed to read server config")
 		return
 	}
 
+	logger.Instance.WithField("port", srvConfig.ConnectorPort).Info("Starting Jira Connector server")
 	apiServer.NewServer(srvConfig, store).Start()
 }
