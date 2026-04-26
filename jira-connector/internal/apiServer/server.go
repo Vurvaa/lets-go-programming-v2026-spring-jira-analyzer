@@ -3,7 +3,7 @@ package apiServer
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"jira-connector/internal/logger"
 	"net/http"
 
 	"jira-connector/internal/apiServer/handlers"
@@ -37,9 +37,12 @@ func (server *Server) routes() {
 func (server *Server) updateProject(writer http.ResponseWriter, request *http.Request) {
 	projectKey := request.URL.Query().Get("project")
 	if projectKey == "" {
+		logger.Instance.Warn("Update request received without project key")
 		http.Error(writer, "project name was not passed to /updateProject", http.StatusBadRequest)
 		return
 	}
+
+	logger.Instance.WithField("project_key", projectKey).Info("Received update request")
 
 	project, err := connector.GetProject(server.repository, projectKey)
 	if err != nil {
@@ -76,6 +79,7 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 
 	projects, err := handlers.HandleProjects(server.repository, search)
 	if err != nil {
+		logger.Instance.WithError(err).Error("Error downloading list of projects")
 		http.Error(writer, fmt.Sprintf("error while downloading list of projects: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -85,12 +89,13 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 	writer.Header().Set("Content-Type", "application/json")
 	response, err := json.Marshal(responseProjects)
 	if err != nil {
+		logger.Instance.WithError(err).Error("Error marshalling projects response")
 		http.Error(writer, fmt.Sprintf("error while marshalling response: %v", err), http.StatusInternalServerError)
 	}
 
 	_, err = writer.Write(response)
 	if err != nil {
-		log.Printf("error while writing response: %v", err)
+		logger.Instance.WithError(err).Error("Error writing response to client")
 	}
 }
 
@@ -98,10 +103,10 @@ func (server *Server) Start() {
 	server.routes()
 
 	addr := fmt.Sprintf("%s:%d", server.host, server.port)
-	fmt.Println("listening on", addr)
+	logger.Instance.WithField("port", server.port).Info("Starting Jira Connector server")
 
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
-		panic(err)
+		logger.Instance.WithError(err).Fatal("Failed to start server")
 	}
 }

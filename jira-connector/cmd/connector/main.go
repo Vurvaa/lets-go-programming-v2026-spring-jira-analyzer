@@ -5,8 +5,8 @@ import (
 	"jira-connector/internal/apiServer"
 	"jira-connector/internal/config"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/logger"
 	"jira-connector/internal/pusher"
-	"log"
 	"time"
 )
 
@@ -28,10 +28,10 @@ func main() {
 	for i := 0; i < 15; i++ {
 		store, err = pusher.NewStorage(connectionStr)
 		if err == nil {
-			log.Println("Successfully connected to database")
+			logger.Instance.Info("Successfully connected to database")
 			break
 		}
-		log.Printf("Database not ready (attempt %d/15), waiting...", i+1)
+		logger.Instance.WithField("attempt", i+1).Warn("Database not ready, waiting...")
 		time.Sleep(2 * time.Second)
 	}
 	if store == nil {

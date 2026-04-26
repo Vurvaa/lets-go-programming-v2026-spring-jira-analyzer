@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/logger"
+
+	"github.com/sirupsen/logrus"
 )
 
 type StatusChanges struct {
@@ -64,6 +67,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 		} `json:"changelog"`
 	}
 	if typeErr := json.Unmarshal(jsonData, &data); typeErr != nil {
+		logger.Instance.WithError(typeErr).Error("Failed to unmarshal changelog")
 		return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 	}
 	var changes []StatusChanges
@@ -84,18 +88,26 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 }
 
 func ParseIssuesOfProject(project *connector.Project) ([]Issue, error) {
+	logger.Instance.WithFields(logrus.Fields{
+		"project_key": project.ProjectKey,
+		"raw_issues":  len(project.Issues),
+	}).Info("Starting data transformation")
+
 	var allIssues []Issue
-	for _, rawIssue := range project.Issues {
+	for i, rawIssue := range project.Issues {
 		var issue Issue
 		if typeErr := json.Unmarshal(rawIssue, &issue); typeErr != nil {
+			logger.Instance.WithError(typeErr).WithField("issue_index", i).Error("Failed to unmarshal individual issue")
 			return nil, fmt.Errorf("type mismatch in API response: %w", typeErr)
 		}
 		changes, err := parseStatusChanges(rawIssue)
 		if err != nil {
-			return nil, err
+			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Warn("Could not parse status changes for issue")
 		}
 		issue.StatusChanges = changes
 		allIssues = append(allIssues, issue)
 	}
+
+	logger.Instance.WithField("count", len(allIssues)).Info("Data transformation completed")
 	return allIssues, nil
 }

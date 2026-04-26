@@ -11,9 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"jira-connector/internal/config"
-
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/yaml.v3"
+	"jira-connector/internal/logger"
 )
 
 type Project struct {
@@ -53,6 +54,9 @@ func sleep(ctx context.Context, duration time.Duration) error {
 
 func getBody(ctx context.Context, url string, expansion string) ([]byte, error) {
 	delay := cp.MinTimeSleep
+
+	logger.Instance.WithField("url", url+apiBase+expansion).Debug("Sending request to Jira")
+
 	for {
 		req, err := http.NewRequestWithContext(ctx, "GET", url+apiBase+expansion, nil)
 		if err != nil {
@@ -72,7 +76,12 @@ func getBody(ctx context.Context, url string, expansion string) ([]byte, error) 
 				return nil, fmt.Errorf("response failed with rate limit and \nbody: %s", body)
 			}
 			jiter := min(cp.MaxTimeSleep-delay, rand.Int64N(delay))
-			fmt.Println("sleep for a ", delay+jiter)
+
+			logger.Instance.WithFields(logrus.Fields{
+				"delay_ms": delay + jiter,
+				"url":      url + apiBase + expansion,
+			}).Warn("Rate limit hit, sleeping before retry")
+
 			if err := sleep(ctx, time.Duration(delay+jiter)*time.Millisecond); err != nil {
 				return nil, err
 			}
@@ -117,6 +126,9 @@ func GetProjects(url string) ([]Project, error) {
 func GetIssues(url string, project *Project) error {
 	g, ctx := errgroup.WithContext(context.Background())
 	escapedProjectName := `"` + URL.QueryEscape(project.ProjectName) + `"`
+
+	logger.Instance.WithField("project_name", project.ProjectName).Info("Fetching issues metadata from Jira")
+
 	body, err := getBody(ctx, url, fmt.Sprintf(
 		"search?jql=project=%s&expand=changelog&startAt=0&maxResults=%d",
 		escapedProjectName,
@@ -152,6 +164,7 @@ func GetIssues(url string, project *Project) error {
 					cp.IssueInOneRequest,
 				))
 				if err != nil {
+					logger.Instance.WithError(err).WithField("startAt", startAt).Error("Worker failed to fetch issues body")
 					return err
 				}
 				resp := struct {
@@ -174,6 +187,10 @@ func GetIssues(url string, project *Project) error {
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("error fetching issues from project: %s %w", project.ProjectName, err)
 	}
-	fmt.Println(project.ProjectName+" was saved for time: ", time.Since(start))
+	logger.Instance.WithFields(logrus.Fields{
+		"project_name": project.ProjectName,
+		"duration":     time.Since(start).String(),
+		"count":        len(project.Issues),
+	}).Info("Project issues download completed")
 	return nil
 }

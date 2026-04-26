@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
-	"log"
+	"jira-connector/internal/logger"
+
+	"github.com/sirupsen/logrus"
 )
 
 func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector.Project) error {
@@ -25,10 +27,14 @@ func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector
 		return fmt.Errorf("error of saving project: %w", err)
 	}
 
-	log.Printf("Starting save %d issues", len(issues))
+	logger.Instance.WithField("issues_count", len(issues)).Info("Starting to save issues")
 	for i, issue := range issues {
 		if i%100 == 0 {
-			log.Printf("Processing issues: %d/%d...", i, len(issues))
+			logger.Instance.WithFields(logrus.Fields{
+				"project_key": project.ProjectKey,
+				"processed":   i,
+				"total":       len(issues),
+			}).Info("Processing issues progress...")
 		}
 
 		authorName := issue.Fields.Creator.AuthorName
