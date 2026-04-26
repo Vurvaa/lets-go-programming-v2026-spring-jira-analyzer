@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/rand/v2"
 	"net/http"
 	URL "net/url"
-	"os"
 	"sync"
 	"time"
 
+	"jira-connector/internal/config"
+
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 )
 
 type Project struct {
@@ -30,37 +29,22 @@ const (
 	factor  int    = 2
 )
 
-type Parameters struct {
-	MinTimeSleep      int64 `yaml:"minTimeSleep"`
-	MaxTimeSleep      int64 `yaml:"maxTimeSleep"`
-	Goroutines        int   `yaml:"threadCount"`
-	IssueInOneRequest int   `yaml:"issueInOneRequest"`
-}
-
 var (
-	cp     *Parameters
+	cp     *config.ConnectorConfig
 	client = http.Client{
-		Timeout: time.Minute,
+		Timeout: 180 * time.Second,
 	}
-	once sync.Once
 )
 
-func InitParameters(path string) {
-	once.Do(func() {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cp = &Parameters{}
-		if err = yaml.Unmarshal(data, cp); err != nil {
-			log.Fatal(err)
-		}
-	})
+func InitParameters(cfg *config.ConnectorConfig) {
+	cp = cfg
 }
 
 func sleep(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
-	case <-time.After(duration):
+	case <-timer.C:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -154,11 +138,11 @@ func GetIssues(url string, project *Project) error {
 	project.Issues = make([]json.RawMessage, 0, resp.Total)
 	project.Issues = append(project.Issues, resp.Issues...)
 	pages := (resp.Total + cp.IssueInOneRequest - 1) / cp.IssueInOneRequest
-	cp.Goroutines = min(pages-1, cp.Goroutines)
+	goroutines := min(pages-1, cp.Goroutines)
 	jobs := make(chan int, pages-1)
 	var mu sync.Mutex
 	start := time.Now()
-	for i := 0; i < cp.Goroutines; i++ {
+	for i := 0; i < goroutines; i++ {
 		g.Go(func() error {
 			for startAt := range jobs {
 				body, err := getBody(ctx, url, fmt.Sprintf(
@@ -168,7 +152,6 @@ func GetIssues(url string, project *Project) error {
 					cp.IssueInOneRequest,
 				))
 				if err != nil {
-					fmt.Println("Body returned an error")
 					return err
 				}
 				resp := struct {
