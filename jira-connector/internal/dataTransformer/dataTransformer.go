@@ -7,6 +7,7 @@ import (
 )
 
 type StatusChanges struct {
+	Id         string
 	AuthorName string
 	ChangeTime string
 	FromStatus string
@@ -49,6 +50,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 	var data struct {
 		Changelog struct {
 			Histories []struct {
+				Id     string `json:"id"`
 				Author struct {
 					Name string `json:"name"`
 				} `json:"author"`
@@ -69,6 +71,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 		for _, item := range h.Items {
 			if item.Field == "status" {
 				changes = append(changes, StatusChanges{
+					Id:         h.Id,
 					AuthorName: h.Author.Name,
 					ChangeTime: h.Created,
 					FromStatus: item.FromString,
