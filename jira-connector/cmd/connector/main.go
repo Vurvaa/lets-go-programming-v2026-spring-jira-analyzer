@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"jira-connector/internal/apiServer"
-	"jira-connector/internal/configReader"
+	"jira-connector/internal/config"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/pusher"
 	"log"
@@ -12,24 +12,18 @@ import (
 
 func main() {
 	const configName = "config.yaml"
-
-	connector.InitParameters(configName)
-
-	reader := configReader.NewConfigReader(configName)
-	cfg, err := reader.ReadConfigDB()
+	cfg, err := config.LoadConfig(configName)
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
-
+	connector.InitParameters(&cfg.Connector)
 	connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=disable",
-		cfg.UserDB,
-		cfg.PasswordDB,
-		cfg.HostDB,
-		cfg.PortDB,
-		cfg.NameDB,
+		cfg.DB.UserDB,
+		cfg.DB.PasswordDB,
+		cfg.DB.HostDB,
+		cfg.DB.PortDB,
+		cfg.DB.NameDB,
 	)
-
 	var store *pusher.Storage
 	for i := 0; i < 15; i++ {
 		store, err = pusher.NewStorage(connectionStr)
@@ -40,12 +34,8 @@ func main() {
 		log.Printf("Database not ready (attempt %d/15), waiting...", i+1)
 		time.Sleep(2 * time.Second)
 	}
-
-	srvConfig, err := reader.ReadServerConfig()
-	if err != nil {
-		log.Fatal(err)
-		return
+	if store == nil {
+		log.Fatal("Cannot start server: database connection failed")
 	}
-
-	apiServer.NewServer(srvConfig, store).Start()
+	apiServer.NewServer(cfg.Server, store).Start()
 }
