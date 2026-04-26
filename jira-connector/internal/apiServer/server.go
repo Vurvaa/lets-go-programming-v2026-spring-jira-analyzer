@@ -1,14 +1,13 @@
 package apiServer
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"jira-connector/internal/apiServer/handlers"
-	"jira-connector/internal/apiServer/models"
+	"jira-connector/internal/config"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
 	"jira-connector/internal/pusher"
@@ -21,7 +20,7 @@ type Server struct {
 	storage    *pusher.Storage
 }
 
-func NewServer(cfg models.ServerConfig, store *pusher.Storage) *Server {
+func NewServer(cfg config.ServerConfig, store *pusher.Storage) *Server {
 	return &Server{
 		repository: cfg.Repository,
 		host:       cfg.ConnectorHost,
@@ -44,31 +43,28 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 
 	project, err := connector.GetProject(server.repository, projectKey)
 	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("error while downloading info of project %q: %v", projectKey, err), http.StatusBadRequest)
 		return
 	}
 
-	err = connector.GetIssues(server.repository, project)
-	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-		return
-	}
-
-	parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
-	if err != nil {
-		http.Error(writer, fmt.Sprintf("error while parsing issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-		return
-	}
-
-	writer.WriteHeader(http.StatusOK)
-	if _, err := writer.Write([]byte("Project update started")); err != nil {
-		return
-	}
+	writer.WriteHeader(http.StatusAccepted)
+	writer.Write([]byte("Project update task accepted"))
 
 	go func() {
-		ctx := context.Background()
-		if err := server.storage.SaveProject(ctx, parsedIssues, project); err != nil {
-			log.Println("Error saving project in background:", err)
+		err = connector.GetIssues(server.repository, project)
+		if err != nil {
+			log.Printf("error downloading issues for %s: %v", projectKey, err)
+			return
+		}
+
+		parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
+		if err != nil {
+			log.Printf("error parsing issues for %s: %v", projectKey, err)
+			return
+		}
+
+		if err := server.storage.SaveProject(parsedIssues, project); err != nil {
+			log.Printf("error saving project %s: %v", projectKey, err)
 		}
 	}()
 }
