@@ -183,6 +183,7 @@ func GetIssues(url string, project *Project) error {
 	}
 	close(jobs)
 	if err := g.Wait(); err != nil {
+		logger.Instance.WithError(err).WithField("project_name", project.ProjectName).Error("Failed to fetch issues for project")
 		return fmt.Errorf("error fetching issues from project: %s %w", project.ProjectName, err)
 	}
 	logger.Instance.WithFields(logrus.Fields{
