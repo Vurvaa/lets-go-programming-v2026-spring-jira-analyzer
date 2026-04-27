@@ -2,9 +2,20 @@ package dataTransformer
 
 import (
 	"encoding/json"
+	"io"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/logger"
+	"os"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
+
+func TestMain(m *testing.M) {
+	logger.Instance = logrus.New()
+	logger.Instance.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
 
 func TestParseStatusChanges(t *testing.T) {
 	jsonData := []byte(`

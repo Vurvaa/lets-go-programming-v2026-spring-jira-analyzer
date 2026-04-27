@@ -14,7 +14,7 @@ func main() {
 	const configName = "config.yaml"
 	cfg, err := config.LoadConfig(configName)
 	if err != nil {
-		log.Fatal(err)
+		logger.Instance.WithError(err).Fatal("Failed to read DB config")
 	}
 	connector.InitParameters(&cfg.Connector)
 	connectionStr := fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=disable",
@@ -35,7 +35,7 @@ func main() {
 		time.Sleep(2 * time.Second)
 	}
 	if store == nil {
-		log.Fatal("Cannot start server: database connection failed")
+		logger.Instance.Fatal("Cannot start server: database connection failed")
 	}
 	apiServer.NewServer(cfg.Server, store).Start()
 }

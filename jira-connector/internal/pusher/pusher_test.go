@@ -3,14 +3,24 @@ package pusher
 import (
 	"database/sql"
 	"errors"
+	"io"
+	"os"
 	"testing"
 
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
+	"jira-connector/internal/logger"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logger.Instance = logrus.New()
+	logger.Instance.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
 
 func beginTxWithMock(t *testing.T, db *sql.DB, mock sqlmock.Sqlmock) *sql.Tx {
 	mock.ExpectBegin()

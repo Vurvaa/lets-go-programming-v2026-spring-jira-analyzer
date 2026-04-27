@@ -103,6 +103,7 @@ func ParseIssuesOfProject(project *connector.Project) ([]Issue, error) {
 		changes, err := parseStatusChanges(rawIssue)
 		if err != nil {
 			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Warn("Could not parse status changes for issue")
+			return nil, err
 		}
 		issue.StatusChanges = changes
 		allIssues = append(allIssues, issue)

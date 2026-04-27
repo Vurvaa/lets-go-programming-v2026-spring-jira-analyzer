@@ -4,13 +4,23 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"jira-connector/internal/config"
+	"jira-connector/internal/logger"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/sirupsen/logrus"
 )
+
+func TestMain(m *testing.M) {
+	logger.Instance = logrus.New()
+	logger.Instance.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
 
 func TestSleep(t *testing.T) {
 	t.Run("constext is open while we are sleeping, returns nil", func(t *testing.T) {

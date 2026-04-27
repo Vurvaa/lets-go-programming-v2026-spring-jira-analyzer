@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"jira-connector/internal/config"
+	"jira-connector/internal/logger"
+
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
-	"jira-connector/internal/logger"
 )
 
 type Project struct {
@@ -53,10 +54,8 @@ func sleep(ctx context.Context, duration time.Duration) error {
 }
 
 func getBody(ctx context.Context, url string, expansion string) ([]byte, error) {
-	delay := cp.MinTimeSleep
-
 	logger.Instance.WithField("url", url+apiBase+expansion).Debug("Sending request to Jira")
-
+	delay := cp.MinTimeSleep
 	for {
 		req, err := http.NewRequestWithContext(ctx, "GET", url+apiBase+expansion, nil)
 		if err != nil {
@@ -124,10 +123,9 @@ func GetProjects(url string) ([]Project, error) {
 }
 
 func GetIssues(url string, project *Project) error {
+	logger.Instance.WithField("project_name", project.ProjectName).Info("Fetching issues metadata from Jira")
 	g, ctx := errgroup.WithContext(context.Background())
 	escapedProjectName := `"` + URL.QueryEscape(project.ProjectName) + `"`
-
-	logger.Instance.WithField("project_name", project.ProjectName).Info("Fetching issues metadata from Jira")
 
 	body, err := getBody(ctx, url, fmt.Sprintf(
 		"search?jql=project=%s&expand=changelog&startAt=0&maxResults=%d",

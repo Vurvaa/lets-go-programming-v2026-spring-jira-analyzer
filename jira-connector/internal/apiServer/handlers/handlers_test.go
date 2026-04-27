@@ -1,17 +1,27 @@
 package handlers
 
 import (
+	"io"
 	"jira-connector/internal/apiServer/models"
 	"jira-connector/internal/config"
 	"jira-connector/internal/connector"
+	"jira-connector/internal/logger"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/sirupsen/logrus"
 )
+
+func TestMain(m *testing.M) {
+	logger.Instance = logrus.New()
+	logger.Instance.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
 
 func TestParseLimit(t *testing.T) {
 	tests := []struct {

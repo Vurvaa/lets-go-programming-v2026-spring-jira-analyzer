@@ -11,7 +11,10 @@ import (
 )
 
 func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector.Project) error {
-	log.Printf("Saving %d issues", len(issues))
+	logger.Instance.WithFields(logrus.Fields{
+		"project_key": project.ProjectKey,
+		"issue_count": len(issues),
+	}).Info("Starting to save project data")
 
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -24,6 +27,7 @@ func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector
 		project.ProjectName,
 		project.ProjectSelf); err != nil {
 		tx.Rollback()
+		logger.Instance.WithError(err).WithField("project_key", project.ProjectKey).Error("Failed to save project")
 		return fmt.Errorf("error of saving project: %w", err)
 	}
 
@@ -40,16 +44,19 @@ func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector
 		authorName := issue.Fields.Creator.AuthorName
 		if err := s.upsertAuthor(tx, authorName); err != nil {
 			tx.Rollback()
+			logger.Instance.WithError(err).WithField("author", authorName).Error("Failed to save author")
 			return fmt.Errorf("error of saving author: %w", err)
 		}
 		assigneeName := issue.Fields.Assignee.AssigneeName
 		if err := s.upsertAuthor(tx, assigneeName); err != nil {
 			tx.Rollback()
+			logger.Instance.WithError(err).WithField("assignee", assigneeName).Error("Failed to save assignee")
 			return fmt.Errorf("error of saving assignee: %w", err)
 		}
 
 		if err := s.upsertIssue(tx, issue); err != nil {
 			tx.Rollback()
+			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Error("Failed to save issue")
 			return fmt.Errorf("error of saving issue: %w", err)
 		}
 
@@ -57,13 +64,14 @@ func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector
 		issueID := issue.IssueID
 		if err := s.upsertStatusChanges(tx, issueID, changes); err != nil {
 			tx.Rollback()
+			logger.Instance.WithError(err).WithField("issue_id", issueID).Error("Failed to save status changes")
 			return fmt.Errorf("error of saving status changes: %w", err)
 		}
 	}
 
 	err = tx.Commit()
 	if err == nil {
-		log.Println("Saving completed successfully")
+		logger.Instance.Info("Saving completed successfully")
 	}
 	return err
 }
