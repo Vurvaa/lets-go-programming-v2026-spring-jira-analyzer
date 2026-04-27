@@ -10,6 +10,7 @@ import (
 )
 
 type StatusChanges struct {
+	Id         string
 	AuthorName string
 	ChangeTime string
 	FromStatus string
@@ -52,6 +53,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 	var data struct {
 		Changelog struct {
 			Histories []struct {
+				Id     string `json:"id"`
 				Author struct {
 					Name string `json:"name"`
 				} `json:"author"`
@@ -73,6 +75,7 @@ func parseStatusChanges(jsonData []byte) ([]StatusChanges, error) {
 		for _, item := range h.Items {
 			if item.Field == "status" {
 				changes = append(changes, StatusChanges{
+					Id:         h.Id,
 					AuthorName: h.Author.Name,
 					ChangeTime: h.Created,
 					FromStatus: item.FromString,
@@ -100,6 +103,7 @@ func ParseIssuesOfProject(project *connector.Project) ([]Issue, error) {
 		changes, err := parseStatusChanges(rawIssue)
 		if err != nil {
 			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Warn("Could not parse status changes for issue")
+			return nil, err
 		}
 		issue.StatusChanges = changes
 		allIssues = append(allIssues, issue)

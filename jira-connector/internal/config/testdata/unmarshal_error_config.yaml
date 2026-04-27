@@ -11,7 +11,7 @@ server:
   connector_host: 0.0.0.0
 
 connector:
-  minTimeSleep: 4000
+  minTimeSleep: invalid
   maxTimeSleep: 120000
   issueInOneRequest: 200
-  threadCount: 30
+  threadCount: 10

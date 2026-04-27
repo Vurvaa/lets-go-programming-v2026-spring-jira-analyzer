@@ -1,14 +1,13 @@
 package apiServer
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"jira-connector/internal/logger"
 	"net/http"
 
 	"jira-connector/internal/apiServer/handlers"
-	"jira-connector/internal/apiServer/models"
+	"jira-connector/internal/config"
 	"jira-connector/internal/connector"
 	"jira-connector/internal/dataTransformer"
 	"jira-connector/internal/pusher"
@@ -21,7 +20,7 @@ type Server struct {
 	storage    *pusher.Storage
 }
 
-func NewServer(cfg models.ServerConfig, store *pusher.Storage) *Server {
+func NewServer(cfg config.ServerConfig, store *pusher.Storage) *Server {
 	return &Server{
 		repository: cfg.Repository,
 		host:       cfg.ConnectorHost,
@@ -48,34 +47,28 @@ func (server *Server) updateProject(writer http.ResponseWriter, request *http.Re
 	project, err := connector.GetProject(server.repository, projectKey)
 	if err != nil {
 		logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Failed to fetch project metadata")
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
+		http.Error(writer, fmt.Sprintf("error while downloading info of project %q: %v", projectKey, err), http.StatusBadRequest)
 		return
 	}
 
-	err = connector.GetIssues(server.repository, project)
-	if err != nil {
-		logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Failed to download issues from Jira")
-		http.Error(writer, fmt.Sprintf("error while downloading issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-		return
-	}
-
-	parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
-	if err != nil {
-		logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Failed to transform project data")
-		http.Error(writer, fmt.Sprintf("error while parsing issues for project %q: %v", projectKey, err), http.StatusBadRequest)
-		return
-	}
-
-	writer.WriteHeader(http.StatusOK)
-	if _, err := writer.Write([]byte("Project update started")); err != nil {
-		logger.Instance.WithError(err).Error("Error writing response")
-		return
-	}
+	writer.WriteHeader(http.StatusAccepted)
+	writer.Write([]byte("Project update task accepted"))
 
 	go func() {
-		ctx := context.Background()
-		if err := server.storage.SaveProject(ctx, parsedIssues, project); err != nil {
-			logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Background save failed")
+		err = connector.GetIssues(server.repository, project)
+		if err != nil {
+			logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Failed to download issues from Jira")
+			return
+		}
+
+		parsedIssues, err := dataTransformer.ParseIssuesOfProject(project)
+		if err != nil {
+			logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Failed to transform project data")
+			return
+		}
+
+		if err := server.storage.SaveProject(parsedIssues, project); err != nil {
+			logger.Instance.WithError(err).WithField("project_key", projectKey).Error("Project save failed")
 		}
 	}()
 }
@@ -99,6 +92,7 @@ func (server *Server) projects(writer http.ResponseWriter, request *http.Request
 	if err != nil {
 		logger.Instance.WithError(err).Error("Error marshalling projects response")
 		http.Error(writer, fmt.Sprintf("error while marshalling response: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	_, err = writer.Write(response)

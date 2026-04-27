@@ -8,14 +8,14 @@ import (
 	"math/rand/v2"
 	"net/http"
 	URL "net/url"
-	"os"
 	"sync"
 	"time"
 
+	"jira-connector/internal/config"
+	"jira-connector/internal/logger"
+
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
-	"jira-connector/internal/logger"
 )
 
 type Project struct {
@@ -31,37 +31,22 @@ const (
 	factor  int    = 2
 )
 
-type Parameters struct {
-	MinTimeSleep      int64 `yaml:"minTimeSleep"`
-	MaxTimeSleep      int64 `yaml:"maxTimeSleep"`
-	Goroutines        int   `yaml:"threadCount"`
-	IssueInOneRequest int   `yaml:"issueInOneRequest"`
-}
-
 var (
-	cp     *Parameters
+	cp     *config.ConnectorConfig
 	client = http.Client{
-		Timeout: time.Minute,
+		Timeout: 180 * time.Second,
 	}
-	once sync.Once
 )
 
-func InitParameters(path string) {
-	once.Do(func() {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			logger.Instance.WithError(err).Fatal("Failed to read connector config file")
-		}
-		cp = &Parameters{}
-		if err = yaml.Unmarshal(data, cp); err != nil {
-			logger.Instance.WithError(err).Fatal("Failed to parse connector config")
-		}
-	})
+func InitParameters(cfg *config.ConnectorConfig) {
+	cp = cfg
 }
 
 func sleep(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
 	select {
-	case <-time.After(duration):
+	case <-timer.C:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -69,10 +54,8 @@ func sleep(ctx context.Context, duration time.Duration) error {
 }
 
 func getBody(ctx context.Context, url string, expansion string) ([]byte, error) {
-	delay := cp.MinTimeSleep
-
 	logger.Instance.WithField("url", url+apiBase+expansion).Debug("Sending request to Jira")
-
+	delay := cp.MinTimeSleep
 	for {
 		req, err := http.NewRequestWithContext(ctx, "GET", url+apiBase+expansion, nil)
 		if err != nil {
@@ -140,10 +123,9 @@ func GetProjects(url string) ([]Project, error) {
 }
 
 func GetIssues(url string, project *Project) error {
+	logger.Instance.WithField("project_name", project.ProjectName).Info("Fetching issues metadata from Jira")
 	g, ctx := errgroup.WithContext(context.Background())
 	escapedProjectName := `"` + URL.QueryEscape(project.ProjectName) + `"`
-
-	logger.Instance.WithField("project_name", project.ProjectName).Info("Fetching issues metadata from Jira")
 
 	body, err := getBody(ctx, url, fmt.Sprintf(
 		"search?jql=project=%s&expand=changelog&startAt=0&maxResults=%d",
@@ -166,19 +148,11 @@ func GetIssues(url string, project *Project) error {
 	project.Issues = make([]json.RawMessage, 0, resp.Total)
 	project.Issues = append(project.Issues, resp.Issues...)
 	pages := (resp.Total + cp.IssueInOneRequest - 1) / cp.IssueInOneRequest
-	cp.Goroutines = min(pages-1, cp.Goroutines)
+	goroutines := min(pages-1, cp.Goroutines)
 	jobs := make(chan int, pages-1)
 	var mu sync.Mutex
 	start := time.Now()
-
-	logger.Instance.WithFields(logrus.Fields{
-		"project_name": project.ProjectName,
-		"total_issues": resp.Total,
-		"pages":        pages,
-		"goroutines":   cp.Goroutines,
-	}).Info("Starting parallel issues download")
-
-	for i := 0; i < cp.Goroutines; i++ {
+	for i := 0; i < goroutines; i++ {
 		g.Go(func() error {
 			for startAt := range jobs {
 				body, err := getBody(ctx, url, fmt.Sprintf(
@@ -209,6 +183,7 @@ func GetIssues(url string, project *Project) error {
 	}
 	close(jobs)
 	if err := g.Wait(); err != nil {
+		logger.Instance.WithError(err).WithField("project_name", project.ProjectName).Error("Failed to fetch issues for project")
 		return fmt.Errorf("error fetching issues from project: %s %w", project.ProjectName, err)
 	}
 	logger.Instance.WithFields(logrus.Fields{

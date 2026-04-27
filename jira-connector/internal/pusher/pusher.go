@@ -1,7 +1,6 @@
 package pusher
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"jira-connector/internal/connector"
@@ -11,17 +10,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issue, project *connector.Project) error {
+func (s *Storage) SaveProject(issues []dataTransformer.Issue, project *connector.Project) error {
 	logger.Instance.WithFields(logrus.Fields{
 		"project_key": project.ProjectKey,
 		"issue_count": len(issues),
 	}).Info("Starting to save project data")
 
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+
 	if err := s.upsertProject(
-		ctx, project.ProjectId,
+		tx, project.ProjectId,
 		project.ProjectKey,
 		project.ProjectName,
 		project.ProjectSelf); err != nil {
+		tx.Rollback()
 		logger.Instance.WithError(err).WithField("project_key", project.ProjectKey).Error("Failed to save project")
 		return fmt.Errorf("error of saving project: %w", err)
 	}
@@ -37,56 +42,67 @@ func (s *Storage) SaveProject(ctx context.Context, issues []dataTransformer.Issu
 		}
 
 		authorName := issue.Fields.Creator.AuthorName
-		if err := s.upsertAuthor(ctx, authorName); err != nil {
+		if err := s.upsertAuthor(tx, authorName); err != nil {
+			tx.Rollback()
 			logger.Instance.WithError(err).WithField("author", authorName).Error("Failed to save author")
 			return fmt.Errorf("error of saving author: %w", err)
 		}
 		assigneeName := issue.Fields.Assignee.AssigneeName
-		if err := s.upsertAuthor(ctx, assigneeName); err != nil {
+		if err := s.upsertAuthor(tx, assigneeName); err != nil {
+			tx.Rollback()
 			logger.Instance.WithError(err).WithField("assignee", assigneeName).Error("Failed to save assignee")
 			return fmt.Errorf("error of saving assignee: %w", err)
 		}
 
-		if err := s.upsertIssue(ctx, issue); err != nil {
+		if err := s.upsertIssue(tx, issue); err != nil {
+			tx.Rollback()
 			logger.Instance.WithError(err).WithField("issue_id", issue.IssueID).Error("Failed to save issue")
 			return fmt.Errorf("error of saving issue: %w", err)
 		}
 
 		changes := issue.StatusChanges
 		issueID := issue.IssueID
-		if err := s.upsertStatusChanges(ctx, issueID, changes); err != nil {
+		if err := s.upsertStatusChanges(tx, issueID, changes); err != nil {
+			tx.Rollback()
 			logger.Instance.WithError(err).WithField("issue_id", issueID).Error("Failed to save status changes")
 			return fmt.Errorf("error of saving status changes: %w", err)
 		}
 	}
 
-	logger.Instance.Info("Saving completed successfully")
-	return nil
+	err = tx.Commit()
+	if err == nil {
+		logger.Instance.Info("Saving completed successfully")
+	}
+	return err
 }
 
-func (s *Storage) upsertProject(ctx context.Context, projectID, projectKey, projectName, URL string) error {
+func (s *Storage) upsertProject(tx *sql.Tx, projectID, projectKey, projectName, URL string) error {
 	query := `INSERT INTO projects (id, project_key, name, project_url) VALUES ($1, $2, $3, $4) ON CONFLICT (id)DO UPDATE SET name = EXCLUDED.name`
-	_, err := s.db.ExecContext(ctx, query, projectID, projectKey, projectName, URL)
+	_, err := tx.Exec(query, projectID, projectKey, projectName, URL)
 	return err
 }
 
-func (s *Storage) upsertAuthor(ctx context.Context, name string) error {
+func (s *Storage) upsertAuthor(tx *sql.Tx, name string) error {
 	query := `INSERT INTO authors (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`
-	_, err := s.db.ExecContext(ctx, query, name)
+	_, err := tx.Exec(query, name)
 	return err
 }
 
-func (s *Storage) upsertStatusChanges(ctx context.Context, issueID string, changes []dataTransformer.StatusChanges) error {
+func (s *Storage) upsertStatusChanges(tx *sql.Tx, issueID string, changes []dataTransformer.StatusChanges) error {
 	query := `
-			INSERT INTO status_changes (issue_id, author_name, from_status, to_status, change_time) 
-			VALUES ($1, $2, $3, $4, $5)`
+        INSERT INTO status_changes (id, issue_id, author_name, from_status, to_status, change_time) 
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO UPDATE SET
+            from_status = EXCLUDED.from_status,
+            to_status = EXCLUDED.to_status`
 
 	for _, statusChange := range changes {
-		if err := s.upsertAuthor(ctx, statusChange.AuthorName); err != nil {
+		if err := s.upsertAuthor(tx, statusChange.AuthorName); err != nil {
 			return fmt.Errorf("error of pre-saving status change author: %w", err)
 		}
 
-		_, err := s.db.ExecContext(ctx, query,
+		_, err := tx.Exec(query,
+			statusChange.Id,
 			issueID,
 			statusChange.AuthorName,
 			statusChange.FromStatus,
@@ -101,7 +117,7 @@ func (s *Storage) upsertStatusChanges(ctx context.Context, issueID string, chang
 	return nil
 }
 
-func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) error {
+func (s *Storage) upsertIssue(tx *sql.Tx, issue dataTransformer.Issue) error {
 	query := `
 			INSERT INTO issues (id, project_id, author_name,
 			                    assignee_name, summary, description,
@@ -110,17 +126,22 @@ func (s *Storage) upsertIssue(ctx context.Context, issue dataTransformer.Issue) 
 			                    time_spent)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			ON CONFLICT (id) DO UPDATE SET
-					status = EXCLUDED.status,
-					updated_time = EXCLUDED.updated_time,
-					time_spent = EXCLUDED.time_spent,
-					summary = EXCLUDED.summary`
+    	status = EXCLUDED.status,
+    	updated_time = EXCLUDED.updated_time,
+    	time_spent = EXCLUDED.time_spent,
+    	summary = EXCLUDED.summary,
+    	assignee_name = EXCLUDED.assignee_name,
+    	priority = EXCLUDED.priority,
+    	description = EXCLUDED.description,
+			closed_time = EXCLUDED.closed_time,
+			type = EXCLUDED.type`
 
 	closedTime := sql.NullString{
 		String: issue.Fields.ClosedTime,
 		Valid:  issue.Fields.ClosedTime != "",
 	}
 
-	_, err := s.db.ExecContext(ctx, query,
+	_, err := tx.Exec(query,
 		issue.IssueID,                      // $1
 		issue.Fields.Project.ProjectID,     // $2
 		issue.Fields.Creator.AuthorName,    // $3

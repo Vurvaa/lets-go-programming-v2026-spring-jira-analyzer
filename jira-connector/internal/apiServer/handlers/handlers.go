@@ -18,14 +18,6 @@ const (
 func GetProjectResponse(page, limit int, projects []models.Project) models.ProjectResponse {
 	projectsCount := len(projects)
 
-	if limit <= 0 {
-		limit = defaultLimit
-	}
-
-	if page <= 0 {
-		page = defaultPage
-	}
-
 	pageCount := 0
 	if projectsCount > 0 {
 		pageCount = (projectsCount + limit - 1) / limit

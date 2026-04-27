@@ -13,5 +13,5 @@ server:
 connector:
   minTimeSleep: 4000
   maxTimeSleep: 120000
-  issueInOneRequest: 200
-  threadCount: 30
+  issueInOneRequest: -3
+  threadCount: 1000000
