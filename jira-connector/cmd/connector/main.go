@@ -12,6 +12,7 @@ import (
 
 func main() {
 	const configName = "config.yaml"
+	logger.InitLogger()
 	cfg, err := config.LoadConfig(configName)
 	if err != nil {
 		logger.Instance.WithError(err).Fatal("Failed to read DB config")
